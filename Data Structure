@@ -1,0 +1,25 @@
+one BTree uses 3 files.
+File #1. Metadata about the tree (height, d-parameter, name of index_file and mainmemory_file)
+File #2. Index file: Contains pages, each page has capacity of 2d
+File #3. Main memory file: Contains records
+
+
+
+
+Example of page from file 2:
+d=3
+p0 K0 p1 K1 p2 K3 p3 K4 p4 K5 p5
+
+
+Example of record from file 3:
+Offset  Key a  b  c
+FF3     123 12 90 62
+
+
+Key is unique and > 0; value 0 used to indicate NO_KEY
+
+Offset point where in file page/record is stored, value -1 represents NIL
+
+
+Metadata file:
+d-param, height, rootPageOffset
