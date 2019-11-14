@@ -160,8 +160,9 @@ void BTree::printMainMem(){
 
 // This is a helper function, it doesn't contribute to I/O operations count,
 // and doesn't change the state of the tree
+// Displays all BTree pages DFS style.
 void BTree::printIndex(){
-	//TODO update stack with new pages found mid printing
+	//TODO optimize code to avoid repetable sections of code
 	if(!this->isLoaded){
 		throw new std::runtime_error("No BTree is loaded");
 	}
@@ -176,6 +177,7 @@ void BTree::printIndex(){
 	int* x = new int[2*d];
 	int* a = new int[2*d];
 
+	std::cout << "Tree Pages Memory:\n";
 	while(!pages.empty()){
 		int page = pages.top();
 		pages.pop();
@@ -184,9 +186,7 @@ void BTree::printIndex(){
 		this->indexFile.read(reinterpret_cast<char *>(a), (2*this->d)*sizeof(int));
 		this->indexFile.read(reinterpret_cast<char *>(p), (2*this->d+1)*sizeof(int));
 
-
-		std::cout << "Main Memory:\n"
-				  << "┏━━━━━━┯━━━━━━┯━━━━━━┯━━━━━━┓\n"
+		std::cout << "┏━━━━━━┯━━━━━━┯━━━━━━┯━━━━━━┓\n"
 				  << "┃ PAGE │" << std::setw(6) << page <<"│PARENT│";
 		if(parent == NIL)
 			std::cout << "  NIL ";
@@ -213,16 +213,20 @@ void BTree::printIndex(){
 					reached_trash = true;
 					if(p[i] == NIL)
 						std::cout << "  NIL ";
-					else
+					else{
+						pages.push(p[i]);
 						std::cout << std::setw(6) << p[i];
+					}
 					std::cout <<"│██████│██████│";
 				} else
 					std::cout << "██████│██████│██████│";
 			} else{
 				if(p[i] == NIL)
 					std::cout << "  NIL ";
-				else
+				else{
+					pages.push(p[i]);
 					std::cout << std::setw(6) << p[i];
+				}
 				std::cout << "│" << std::setw(6) << x[i]
 						  << "│" << std::setw(6) << a[i] << "│";
 			}
