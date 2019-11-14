@@ -8,6 +8,8 @@
 #ifndef BTREE_BTREE_H_
 #define BTREE_BTREE_H_
 
+#include<iostream>
+#include<iomanip>
 #include<fstream>
 #include"../page/Page.h"
 
@@ -20,6 +22,11 @@ public:
 
 	bool isReady(){ return isLoaded;}
 	void createBTree(std::string name, int d);
+	void loadBTree(std::string name);
+
+	// Helpers (visualization)
+	void printMainMem();
+	void printIndex();
 
 private:
 	bool isLoaded;
@@ -30,6 +37,9 @@ private:
 	int d;
 	int h;
 	PAGE_OFFSET rootPage;
+
+	void saveMetaData();
+	void loadMetaData();
 
 };
 

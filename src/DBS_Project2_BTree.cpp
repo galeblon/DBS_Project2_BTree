@@ -51,7 +51,9 @@ bool parseAction(char action, BTree& tree){
 	try{
 		switch(toupper(action)){
 			case 'L':
-				std::cout << "Loading db operation here\n";
+				//std::cout << "Loading db operation here\n";
+				std::cin >> valStr;
+				tree.loadBTree(valStr);
 				break;
 			case 'C':
 				//std::cout << "Creating db operation here\n";
@@ -75,9 +77,11 @@ bool parseAction(char action, BTree& tree){
 				break;
 			case 'X':
 				std::cout << "Display index file operation here\n";
+				//tree.printIndex();
 				break;
 			case 'M':
-				std::cout << "Display main memory file operation here\n";
+				//std::cout << "Display main memory file operation here\n";
+				tree.printMainMem();
 				break;
 			case 'Q':
 				return true;
