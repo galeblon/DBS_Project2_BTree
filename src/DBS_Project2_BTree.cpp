@@ -76,8 +76,8 @@ bool parseAction(char action, BTree& tree){
 				std::cout << "All records read operation here\n";
 				break;
 			case 'X':
-				std::cout << "Display index file operation here\n";
-				//tree.printIndex();
+				//std::cout << "Display index file operation here\n";
+				tree.printIndex();
 				break;
 			case 'M':
 				//std::cout << "Display main memory file operation here\n";

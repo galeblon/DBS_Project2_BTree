@@ -11,6 +11,7 @@
 #include<iostream>
 #include<iomanip>
 #include<fstream>
+#include<stack>
 #include"../page/Page.h"
 
 typedef int PAGE_OFFSET;

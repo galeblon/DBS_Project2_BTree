@@ -37,7 +37,7 @@ void BTree::createBTree(std::string name, int d){
 	this->h = 0;
 	this->metaDataFile.open(metaName.c_str(), std::ios::out);
 	this->metaDataFile.close();
-	this->metaDataFile.open(metaName.c_str(), std::ios::in | std::ios::out);// | std::ios::binary);
+	this->metaDataFile.open(metaName.c_str(), std::ios::in | std::ios::out | std::ios::binary);
 	this->indexFile.open(indexName.c_str(), std::ios::out);
 	this->indexFile.close();
 	this->indexFile.open(indexName.c_str(), std::ios::in | std::ios::out | std::ios::binary);
@@ -49,15 +49,39 @@ void BTree::createBTree(std::string name, int d){
 	this->rootPage = indexFile.tellg();
 	Page rootPage(this->d);
 	// Save page to indexFile
-	// TODO
+	// TODO create page insert method
+	// FOR TESTING
+	// 10 key/addr and 11 pointers to children
+	// 32 * 4 =  128B
+	int parent = NIL;
+	int p[11] = {128, NIL, NIL, NIL, NIL};
+	int x[10] =    {100, 120, 130, 140, NO_KEY};
+	int a[10] =    { 16,  32,  48,  64};
+	this->indexFile.write(reinterpret_cast<const char *>(&parent), sizeof(int));
+	this->indexFile.write(reinterpret_cast<const char *>(x), 10*sizeof(int));
+	this->indexFile.write(reinterpret_cast<const char *>(a), 10*sizeof(int));
+	this->indexFile.write(reinterpret_cast<const char *>(p), 11*sizeof(int));
+
+	int p2[11] = {NIL, NIL, NIL, NIL};
+	int x2[10] =    {100, 120, 130, NO_KEY};
+	int a2[10] =    { 16,  32,  48};
+	int parent2 = 0;
+	this->indexFile.write(reinterpret_cast<const char *>(&parent2), sizeof(int));
+	this->indexFile.write(reinterpret_cast<const char *>(x2), 10*sizeof(int));
+	this->indexFile.write(reinterpret_cast<const char *>(a2), 10*sizeof(int));
+	this->indexFile.write(reinterpret_cast<const char *>(p2), 11*sizeof(int));
+	this->indexFile.flush();
+	// FOR TESTING
 
 	// Insert all meta data
 	saveMetaData();
 
+	// TODO create record insert method
 	// FOR TESTING
 	int rec[4] = {100, 121, 140, 160};
 	for(int i=0; i<10; i++)
 		this->mainMemoryFile.write(reinterpret_cast<const char *>(rec), 4*sizeof(int));
+	this->mainMemoryFile.flush();
 	// FOR TESTING
 
 
@@ -134,7 +158,85 @@ void BTree::printMainMem(){
 	this->mainMemoryFile.clear();
 }
 
+// This is a helper function, it doesn't contribute to I/O operations count,
+// and doesn't change the state of the tree
 void BTree::printIndex(){
-	// Each page has will have it's own print function, go through every page
-	// and let it print itself
+	//TODO update stack with new pages found mid printing
+	if(!this->isLoaded){
+		throw new std::runtime_error("No BTree is loaded");
+	}
+
+	this->indexFile.seekg(0);
+
+	std::stack<int> pages;
+	pages.push(this->rootPage);
+
+	int parent;
+	int* p = new int[2*this->d+1];
+	int* x = new int[2*d];
+	int* a = new int[2*d];
+
+	while(!pages.empty()){
+		int page = pages.top();
+		pages.pop();
+		this->indexFile.read(reinterpret_cast<char *>(&parent), sizeof(int));
+		this->indexFile.read(reinterpret_cast<char *>(x), (2*this->d)*sizeof(int));
+		this->indexFile.read(reinterpret_cast<char *>(a), (2*this->d)*sizeof(int));
+		this->indexFile.read(reinterpret_cast<char *>(p), (2*this->d+1)*sizeof(int));
+
+
+		std::cout << "Main Memory:\n"
+				  << "┏━━━━━━┯━━━━━━┯━━━━━━┯━━━━━━┓\n"
+				  << "┃ PAGE │" << std::setw(6) << page <<"│PARENT│";
+		if(parent == NIL)
+			std::cout << "  NIL ";
+		else
+			std::cout << std::setw(6) << parent;
+		std::cout << "┃\n";
+		std::cout << "┣━━━━━━┿━━━━━━┿━━━━━━┿━━━━━━╇";
+		for(int i=4; i<6*d; i++){
+			std::cout << "━━━━━━┯";
+		}
+		std::cout << "━━━━━━┓";
+		std::cout << "\n";
+		std::cout << "┃";
+		for(int i=0; i<2*d; i++){
+			std::cout <<  "   p" << std::setw(2) << i << "│" << "   x" << std::setw(2) << i+1
+					  << "│" << "   a" << std::setw(2) << i+1 << "│";
+		}
+		std::cout << "   p" << std::setw(2) << 2*d << "┃\n";
+		std::cout << "┃";
+		bool reached_trash = false;
+		for(int i=0; i<2*d; i++){
+			if(x[i] == NO_KEY){
+				if(!reached_trash){
+					reached_trash = true;
+					if(p[i] == NIL)
+						std::cout << "  NIL ";
+					else
+						std::cout << std::setw(6) << p[i];
+					std::cout <<"│██████│██████│";
+				} else
+					std::cout << "██████│██████│██████│";
+			} else{
+				if(p[i] == NIL)
+					std::cout << "  NIL ";
+				else
+					std::cout << std::setw(6) << p[i];
+				std::cout << "│" << std::setw(6) << x[i]
+						  << "│" << std::setw(6) << a[i] << "│";
+			}
+		}
+		if(reached_trash)
+			std::cout << "██████┃\n";
+		else
+			std::cout << std::setw(6) << p[2*d] << "┃\n";
+
+		std::cout << "┗";
+		for(int i=0; i<6*d; i++)
+			std::cout << "━━━━━━┷";
+		std::cout << "━━━━━━┛\n";
+	}
+
+	this->indexFile.seekg(0);
 }
