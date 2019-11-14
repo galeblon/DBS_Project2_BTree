@@ -80,6 +80,10 @@ void BTree::loadBTree(std::string name){
 	this->indexFile.open(indexName.c_str(), std::ios::in | std::ios::out | std::ios::binary);
 	this->mainMemoryFile.open(mainmemName.c_str(), std::ios::in | std::ios::out | std::ios::binary);
 
+	if(!this->metaDataFile.good() || !this->indexFile.good() || !this->mainMemoryFile.good()){
+		throw new std::runtime_error("Couldn't load all files properly");
+	}
+
 	// Load all meta data
 	loadMetaData();
 
@@ -116,6 +120,8 @@ void BTree::printMainMem(){
 		int record[4];
 		int offset = this->mainMemoryFile.tellg();
 		this->mainMemoryFile.read(reinterpret_cast<char *>(record), 4*sizeof(int));
+		if(this->mainMemoryFile.eof())
+			break;
 		if(record[0] != NO_KEY){
 			std::cout << "┃" << std::setw(10) << offset << "│" << std::setw(10)
 			          << record[0] << "│" << std::setw(10) << record[1]

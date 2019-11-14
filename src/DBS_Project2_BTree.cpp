@@ -92,8 +92,8 @@ bool parseAction(char action, BTree& tree){
 				std::cout << '\"' << action << "\" is undefined action.\n";
 				printHelp();
 		}
-	} catch (std::exception& ex){
-		std::cout << "Error parsing command: " << ex.what();
+	} catch (std::exception* ex){
+		std::cout << "Error parsing command: " << ex->what() << '\n';
 	}
 	return false;
 }
