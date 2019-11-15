@@ -70,7 +70,9 @@ bool parseAction(char action, BTree& tree){
 				std::cout << "Record remove operation here\n";
 				break;
 			case 'R':
-				std::cout << "Record read operation here\n";
+				//std::cout << "Record read operation here\n";
+				std::cin >> valI1;
+				tree.SearchForRecord(valI1);
 				break;
 			case 'A':
 				std::cout << "All records read operation here\n";

@@ -16,6 +16,7 @@
 
 typedef int PAGE_OFFSET;
 
+
 class BTree {
 public:
 	BTree();
@@ -24,6 +25,9 @@ public:
 	bool isReady(){ return isLoaded;}
 	void createBTree(std::string name, int d);
 	void loadBTree(std::string name);
+
+	// Basic operations
+	Record SearchForRecord(int x);
 
 	// Helpers (visualization)
 	void printMainMem();
@@ -44,6 +48,12 @@ private:
 
 	Page* loadPage(int offset);
 	int savePage(Page* page);
+
+	Record loadRecord(int offset);
+	int saveRecord(Record record);
+
+	int ReadRecord(int x);
+
 
 	//TODO turn it into a cache h-sized
 	Page* currPage;

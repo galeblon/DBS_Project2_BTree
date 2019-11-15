@@ -224,10 +224,13 @@ void BTree::printIndex(){
 	}
 
 	this->indexFile.seekg(0);
+	delete[] p;
+	delete[] x;
+	delete[] a;
 }
 
 Page* BTree::loadPage(int offset){
-	// TODO ask buffer first
+	// TODO ask cache first
 
 	// Load from index memory
 	Page* lPage = new Page(this->d);
@@ -262,5 +265,88 @@ int BTree::savePage(Page* page){
 	int offset = this->indexFile.tellg();
 	this->indexFile.write(reinterpret_cast<const char *>(buffer), (6*d+2)*sizeof(int));
 	this->indexFile.flush();
+
+	delete[] buffer;
 	return offset;
 }
+
+Record BTree::loadRecord(int offset){
+	//TODO ask cache first
+	Record record;
+	int* buffer = new int[4];
+	this->mainMemoryFile.seekg(offset);
+
+	this->mainMemoryFile.read(reinterpret_cast<char *>(buffer), 4*sizeof(int));
+	record.setKey(buffer[0]);
+	record.setABC(buffer[1], buffer[2], buffer[3]);
+
+	delete[] buffer;
+	return record;
+}
+
+int BTree::saveRecord(Record record){
+	int* buffer = new int[4];
+	buffer[0] = record.getKey();
+	buffer[1] = record.getA();
+	buffer[2] = record.getB();
+	buffer[3] = record.getC();
+
+	this->mainMemoryFile.seekg(mainMemoryFile.end);
+	int offset = this->mainMemoryFile.tellg();
+	this->mainMemoryFile.write(reinterpret_cast<const char *>(buffer), 4*sizeof(int));
+	this->mainMemoryFile.flush();
+
+	return offset;
+	delete[] buffer;
+}
+
+
+
+int BTree::ReadRecord(int x){
+	int s = this->rootPageOffset;
+	Page* page;
+
+	while(true){
+		if(s == NIL)
+			return NOT_FOUND;
+		page = loadPage(s);
+		if(x < page->x[0]){
+			s = page->p[0];
+			continue;
+		}
+		if(x > page->x[2*d]){
+			s = page->p[2*d+1];
+			continue;
+		}
+		for(int i=0; i<2*d-1; i++){
+			if(page->x[i] == NO_KEY){
+				delete page;
+				return NOT_FOUND;
+			}
+			if(page->x[i] == x){
+				int res = page->a[i];
+				delete page;
+				return res;
+			}
+			if(x > page->x[i] && x < page->x[i+1]){
+				s = page->p[i+1];
+				continue;
+			}
+		}
+	}
+}
+
+Record BTree::SearchForRecord(int x){
+	int offset = ReadRecord(x);
+	if(offset == NOT_FOUND){
+		Record rec;
+		rec.print(offset);
+		return Record();
+	} else {
+		Record rec = this->loadRecord(offset);
+		rec.print(offset);
+		return rec;
+	}
+}
+
+

@@ -28,3 +28,17 @@ Record::Record(int k, int a, int b, int c){
 Record::~Record(){
 
 }
+
+void Record::print(int offset){
+	if(offset == NOT_FOUND){
+		std::cout << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+				  << "┃       RECORD DOESN'T EXIST       ┃\n"
+				  << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n";
+	} else {
+		std::cout << "┏━━━━━━┯━━━━━━┯━━━━━━┯━━━━━━┯━━━━━━┓\n"
+				  << "┃OFFSET│  KEY │    a │     b│     c┃\n";
+		std::cout << std::setw(6) << key << "│" << std::setw(6) << a
+				  << std::setw(6) << b << "│" << std::setw(6) << c << "│\n";
+		std::cout << "┗━━━━━━┷━━━━━━┷━━━━━━┷━━━━━━┷━━━━━━┛\n";
+	}
+}

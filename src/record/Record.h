@@ -8,7 +8,12 @@
 #ifndef RECORD_RECORD_H_
 #define RECORD_RECORD_H_
 
+#include <iostream>
+#include <iomanip>
+
 #define NO_KEY 0
+#define NOT_FOUND -2
+
 
 class Record {
 public:
@@ -26,6 +31,8 @@ public:
 	void setABC(int a, int b, int c){
 		this->a = a; this->b = b; this->c = c;
 	}
+
+	void print(int offset);
 
 private:
 	int key;
