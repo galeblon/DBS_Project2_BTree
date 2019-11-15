@@ -16,13 +16,11 @@ class Page {
 public:
 	Page(int d);
 	~Page();
-
-private:
-	int d;
 	int parent;
 	int* x;			// Keys
 	int* a;			// Address of the record in the main file
 	int* p;			// Pointer to the child page
+	int d;
 };
 
 #endif /* PAGE_PAGE_H_ */

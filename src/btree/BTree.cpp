@@ -11,7 +11,8 @@ BTree::BTree(){
 	this->isLoaded = false;
 	this->h = 0;
 	this->d = 0;
-	this->rootPage = 0;
+	this->rootPageOffset = 0;
+	this->currPage = NULL;
 }
 
 BTree::~BTree(){
@@ -46,42 +47,19 @@ void BTree::createBTree(std::string name, int d){
 	this->mainMemoryFile.open(mainmemName.c_str(), std::ios::in | std::ios::out | std::ios::binary);
 
 	// Insert empty page
-	this->rootPage = indexFile.tellg();
-	Page rootPage(this->d);
+	this->currPage = new Page(this->d);
 	// Save page to indexFile
-	// TODO create page insert method
-	// FOR TESTING
-	// 10 key/addr and 11 pointers to children
-	// 32 * 4 =  128B
-	int parent = NIL;
-	int p[11] = {128, NIL, NIL, NIL, NIL};
-	int x[10] =    {100, 120, 130, 140, NO_KEY};
-	int a[10] =    { 16,  32,  48,  64};
-	this->indexFile.write(reinterpret_cast<const char *>(&parent), sizeof(int));
-	this->indexFile.write(reinterpret_cast<const char *>(x), 10*sizeof(int));
-	this->indexFile.write(reinterpret_cast<const char *>(a), 10*sizeof(int));
-	this->indexFile.write(reinterpret_cast<const char *>(p), 11*sizeof(int));
-
-	int p2[11] = {NIL, NIL, NIL, NIL};
-	int x2[10] =    {100, 120, 130, NO_KEY};
-	int a2[10] =    { 16,  32,  48};
-	int parent2 = 0;
-	this->indexFile.write(reinterpret_cast<const char *>(&parent2), sizeof(int));
-	this->indexFile.write(reinterpret_cast<const char *>(x2), 10*sizeof(int));
-	this->indexFile.write(reinterpret_cast<const char *>(a2), 10*sizeof(int));
-	this->indexFile.write(reinterpret_cast<const char *>(p2), 11*sizeof(int));
-	this->indexFile.flush();
-	// FOR TESTING
+	this->rootPageOffset = this->savePage(this->currPage);
 
 	// Insert all meta data
 	saveMetaData();
 
 	// TODO create record insert method
 	// FOR TESTING
-	int rec[4] = {100, 121, 140, 160};
-	for(int i=0; i<10; i++)
-		this->mainMemoryFile.write(reinterpret_cast<const char *>(rec), 4*sizeof(int));
-	this->mainMemoryFile.flush();
+	//int rec[4] = {100, 121, 140, 160};
+	//for(int i=0; i<10; i++)
+	//	this->mainMemoryFile.write(reinterpret_cast<const char *>(rec), 4*sizeof(int));
+	//this->mainMemoryFile.flush();
 	// FOR TESTING
 
 
@@ -117,7 +95,7 @@ void BTree::loadBTree(std::string name){
 void BTree::saveMetaData(){
 	this->metaDataFile.write(reinterpret_cast<const char *>(&this->d), sizeof(this->d));
 	this->metaDataFile.write(reinterpret_cast<const char *>(&this->h), sizeof(this->h));
-	this->metaDataFile.write(reinterpret_cast<const char *>(&this->rootPage), sizeof(this->rootPage));
+	this->metaDataFile.write(reinterpret_cast<const char *>(&this->rootPageOffset), sizeof(this->rootPageOffset));
 	this->metaDataFile.flush();
 }
 
@@ -125,7 +103,7 @@ void BTree::loadMetaData(){
 	this->metaDataFile.seekg(0);
 	this->metaDataFile.read(reinterpret_cast<char *>(&this->d), sizeof(this->d));
 	this->metaDataFile.read(reinterpret_cast<char *>(&this->h), sizeof(this->h));
-	this->metaDataFile.read(reinterpret_cast<char *>(&this->rootPage), sizeof(this->rootPage));
+	this->metaDataFile.read(reinterpret_cast<char *>(&this->rootPageOffset), sizeof(this->rootPageOffset));
 }
 
 // This is a helper function, it doesn't contribute to I/O operations count,
@@ -170,7 +148,7 @@ void BTree::printIndex(){
 	this->indexFile.seekg(0);
 
 	std::stack<int> pages;
-	pages.push(this->rootPage);
+	pages.push(this->rootPageOffset);
 
 	int parent;
 	int* p = new int[2*this->d+1];
@@ -181,6 +159,7 @@ void BTree::printIndex(){
 	while(!pages.empty()){
 		int page = pages.top();
 		pages.pop();
+		this->indexFile.seekg(page);
 		this->indexFile.read(reinterpret_cast<char *>(&parent), sizeof(int));
 		this->indexFile.read(reinterpret_cast<char *>(x), (2*this->d)*sizeof(int));
 		this->indexFile.read(reinterpret_cast<char *>(a), (2*this->d)*sizeof(int));
@@ -206,11 +185,11 @@ void BTree::printIndex(){
 		}
 		std::cout << "   p" << std::setw(2) << 2*d << "┃\n";
 		std::cout << "┃";
+		bool first_el = true;
 		bool reached_trash = false;
 		for(int i=0; i<2*d; i++){
 			if(x[i] == NO_KEY){
-				if(!reached_trash){
-					reached_trash = true;
+				if(!reached_trash && !first_el){
 					if(p[i] == NIL)
 						std::cout << "  NIL ";
 					else{
@@ -220,6 +199,7 @@ void BTree::printIndex(){
 					std::cout <<"│██████│██████│";
 				} else
 					std::cout << "██████│██████│██████│";
+				reached_trash = true;
 			} else{
 				if(p[i] == NIL)
 					std::cout << "  NIL ";
@@ -230,6 +210,7 @@ void BTree::printIndex(){
 				std::cout << "│" << std::setw(6) << x[i]
 						  << "│" << std::setw(6) << a[i] << "│";
 			}
+			first_el = false;
 		}
 		if(reached_trash)
 			std::cout << "██████┃\n";
@@ -243,4 +224,43 @@ void BTree::printIndex(){
 	}
 
 	this->indexFile.seekg(0);
+}
+
+Page* BTree::loadPage(int offset){
+	// TODO ask buffer first
+
+	// Load from index memory
+	Page* lPage = new Page(this->d);
+	int* buffer = new int[6*this->d+2];
+	this->indexFile.seekg(offset);
+
+	this->indexFile.read(reinterpret_cast<char *>(buffer), (6*this->d+2)*sizeof(int));
+	lPage->d = this->d;
+	lPage->parent = buffer[0];
+	for(int i=1; i<2*d+1; i++)
+		lPage->x[i-1] = buffer[i];
+	for(int i=2*d+2; i<4*d+1; i++)
+		lPage->a[i-2*d-2] = buffer[i];
+	for(int i=4*d+2; i<6*d+2; i++)
+		lPage->p[i-4*d-2] = buffer[i];
+
+	delete[] buffer;
+	return lPage;
+}
+
+int BTree::savePage(Page* page){
+	int* buffer = new int[6*this->d+2];
+	buffer[0] = page->parent;
+	for(int i=1; i<2*d+1; i++)
+		buffer[i] = page->x[i-1];
+	for(int i=2*d+1; i<4*d+1; i++)
+		buffer[i] = page->a[i-2*d-1];
+	for(int i=4*d+1; i<6*d+2; i++)
+		buffer[i] = page->p[i-4*d-1];
+
+	this->indexFile.seekg(indexFile.end);
+	int offset = this->indexFile.tellg();
+	this->indexFile.write(reinterpret_cast<const char *>(buffer), (6*d+2)*sizeof(int));
+	this->indexFile.flush();
+	return offset;
 }

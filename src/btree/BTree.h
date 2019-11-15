@@ -37,10 +37,16 @@ private:
 
 	int d;
 	int h;
-	PAGE_OFFSET rootPage;
+	PAGE_OFFSET rootPageOffset;
 
 	void saveMetaData();
 	void loadMetaData();
+
+	Page* loadPage(int offset);
+	int savePage(Page* page);
+
+	//TODO turn it into a cache h-sized
+	Page* currPage;
 
 };
 
