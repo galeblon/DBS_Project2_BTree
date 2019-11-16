@@ -13,7 +13,8 @@
 
 #define NO_KEY 0
 #define NOT_FOUND -2
-
+#define ALREADY_EXISTS -3
+#define OK 42
 
 class Record {
 public:

@@ -60,8 +60,17 @@ bool parseAction(char action, BTree& tree){
 				std::cin >> valStr >> valI1;
 				tree.createBTree(valStr, valI1);
 				break;
-			case 'I':
-				std::cout << "Record insert operation here\n";
+			case 'I':{
+				//std::cout << "Record insert operation here\n";
+				std::cin >> valI1 >> valI2 >> valI3 >> valI4;
+				Record rec(valI1, valI2, valI3, valI4);
+				int res = tree.InsertRecord(rec);
+				if(res == ALREADY_EXISTS){
+					std::cout << "\tRecord already exists\n";
+				} else if(res == OK){
+					std::cout << "\tRecord insert OK\n";
+				}
+			}
 				break;
 			case 'U':
 				std::cout << "Record update operation here\n";

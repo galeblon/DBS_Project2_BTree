@@ -13,6 +13,7 @@ BTree::BTree(){
 	this->d = 0;
 	this->rootPageOffset = 0;
 	this->currPage = NULL;
+	this->currPageOffset = NIL;
 }
 
 BTree::~BTree(){
@@ -242,10 +243,13 @@ Page* BTree::loadPage(int offset){
 	lPage->parent = buffer[0];
 	for(int i=1; i<2*d+1; i++)
 		lPage->x[i-1] = buffer[i];
-	for(int i=2*d+2; i<4*d+1; i++)
-		lPage->a[i-2*d-2] = buffer[i];
-	for(int i=4*d+2; i<6*d+2; i++)
-		lPage->p[i-4*d-2] = buffer[i];
+	for(int i=2*d+1; i<4*d+1; i++)
+		lPage->a[i-2*d-1] = buffer[i];
+	for(int i=4*d+1; i<6*d+2; i++)
+		lPage->p[i-4*d-1] = buffer[i];
+
+	this->currPageOffset = offset;
+	this->currPage = lPage;
 
 	delete[] buffer;
 	return lPage;
@@ -261,13 +265,30 @@ int BTree::savePage(Page* page){
 	for(int i=4*d+1; i<6*d+2; i++)
 		buffer[i] = page->p[i-4*d-1];
 
-	this->indexFile.seekg(indexFile.end);
+	this->indexFile.seekg(0, indexFile.end);
 	int offset = this->indexFile.tellg();
 	this->indexFile.write(reinterpret_cast<const char *>(buffer), (6*d+2)*sizeof(int));
 	this->indexFile.flush();
 
 	delete[] buffer;
 	return offset;
+}
+
+void BTree::updatePage(int offset, Page* page){
+	int* buffer = new int[6*this->d+2];
+	buffer[0] = page->parent;
+	for(int i=1; i<2*d+1; i++)
+		buffer[i] = page->x[i-1];
+	for(int i=2*d+1; i<4*d+1; i++)
+		buffer[i] = page->a[i-2*d-1];
+	for(int i=4*d+1; i<6*d+2; i++)
+		buffer[i] = page->p[i-4*d-1];
+
+	this->indexFile.seekg(offset);
+	this->indexFile.write(reinterpret_cast<const char *>(buffer), (6*d+2)*sizeof(int));
+	this->indexFile.flush();
+
+	delete[] buffer;
 }
 
 Record BTree::loadRecord(int offset){
@@ -291,10 +312,11 @@ int BTree::saveRecord(Record record){
 	buffer[2] = record.getB();
 	buffer[3] = record.getC();
 
-	this->mainMemoryFile.seekg(mainMemoryFile.end);
+	this->mainMemoryFile.seekg(0, mainMemoryFile.end);
 	int offset = this->mainMemoryFile.tellg();
 	this->mainMemoryFile.write(reinterpret_cast<const char *>(buffer), 4*sizeof(int));
 	this->mainMemoryFile.flush();
+	this->mainMemoryFile.clear();
 
 	return offset;
 	delete[] buffer;
@@ -304,34 +326,34 @@ int BTree::saveRecord(Record record){
 
 int BTree::ReadRecord(int x){
 	int s = this->rootPageOffset;
-	Page* page;
+	//Page* page;
 
 	while(true){
 		if(s == NIL)
 			return NOT_FOUND;
-		page = loadPage(s);
-		if(x < page->x[0]){
-			s = page->p[0];
-			continue;
-		}
-		if(x > page->x[2*d]){
-			s = page->p[2*d+1];
+		//page = loadPage(s)
+		delete this->currPage;
+		this->currPage = loadPage(s);
+		if(x < currPage->x[0]){
+			s = currPage->p[0];
 			continue;
 		}
 		for(int i=0; i<2*d-1; i++){
-			if(page->x[i] == NO_KEY){
-				delete page;
+			if(currPage->x[i] == NO_KEY){
 				return NOT_FOUND;
 			}
-			if(page->x[i] == x){
-				int res = page->a[i];
-				delete page;
+			if(currPage->x[i] == x){
+				int res = currPage->a[i];
 				return res;
 			}
-			if(x > page->x[i] && x < page->x[i+1]){
-				s = page->p[i+1];
+			if(x > currPage->x[i] && x < currPage->x[i+1]){
+				s = currPage->p[i+1];
 				continue;
 			}
+		}
+		if(x > currPage->x[2*d]){
+			s = currPage->p[2*d];
+			continue;
 		}
 	}
 }
@@ -349,4 +371,46 @@ Record BTree::SearchForRecord(int x){
 	}
 }
 
+int BTree::InsertRecord(Record rec){
+	int res = ReadRecord(rec.getKey());
+	if(res != NOT_FOUND)
+		return ALREADY_EXISTS;
+	int m = 0;
+	for(int i=0; i<2*d; i++){
+		if(currPage->x[i] != NO_KEY)
+			m++;
+		else
+			break;
+	}
+	if(m < 2*d){
+		int offset = saveRecord(rec);
+		int key_temp;
+		int offset_temp;
+		for(int i=0; i<2*d; i++){
+			if(currPage->x[i] == NO_KEY){
+				currPage->x[i] = rec.getKey();
+				currPage->a[i] = offset;
+				break;
+			}
+			if(rec.getKey() < currPage->x[i]){
+				key_temp = currPage->x[i];
+				offset_temp = currPage->a[i];
+				currPage->x[i] = rec.getKey();
+				currPage->a[i] = offset;
+				offset = offset_temp;
+				rec.setKey(key_temp);
+			}
+		}
+		// TODO when caching works, this wont be necessary
+		updatePage(currPageOffset, currPage);
+		return OK;
+	}
+
+	//TODO TRY_COMPENSATION
+
+	//TODO MAKE_SPLIT
+
+	// Return random error for time being
+	return ALREADY_EXISTS;
+}
 

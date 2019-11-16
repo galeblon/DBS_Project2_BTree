@@ -28,6 +28,7 @@ public:
 
 	// Basic operations
 	Record SearchForRecord(int x);
+	int InsertRecord(Record rec);
 
 	// Helpers (visualization)
 	void printMainMem();
@@ -46,8 +47,10 @@ private:
 	void saveMetaData();
 	void loadMetaData();
 
+
 	Page* loadPage(int offset);
 	int savePage(Page* page);
+	void updatePage(int offset, Page* page);
 
 	Record loadRecord(int offset);
 	int saveRecord(Record record);
@@ -57,6 +60,7 @@ private:
 
 	//TODO turn it into a cache h-sized
 	Page* currPage;
+	int currPageOffset;
 
 };
 
