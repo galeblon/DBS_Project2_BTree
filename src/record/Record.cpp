@@ -36,10 +36,10 @@ void Record::print(int offset){
 				  << "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛\n";
 	} else {
 		std::cout << "┏━━━━━━━━┯━━━━━━━━┯━━━━━━━━┯━━━━━━━━┯━━━━━━━━┓\n"
-				  << "┃ OFFSET │   KEY  │    a   │     b  │     c  ┃\n";
+				  << "┃ OFFSET │   KEY  │    a   │     b  │     c  ┃\n┃";
 		std::cout << std::setw(8) << offset << "│" << std::setw(8) << key
-				  << "│" << std::setw(8) << a
-				  << std::setw(8) << b << "│" << std::setw(8) << c << "│\n";
+				  << "│" << std::setw(8) << a << "│"
+				  << std::setw(8) << b << "│" << std::setw(8) << c << "┃\n";
 		std::cout << "┗━━━━━━━━┷━━━━━━━━┷━━━━━━━━┷━━━━━━━━┷━━━━━━━━┛\n";
 	}
 }
