@@ -57,6 +57,9 @@ private:
 
 	int ReadRecord(int x);
 
+	int tryCompensation(Record rec);
+
+	int split(Record& rec);
 
 	//TODO turn it into a cache h-sized
 	Page* currPage;

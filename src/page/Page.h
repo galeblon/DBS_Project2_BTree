@@ -21,6 +21,8 @@ public:
 	int* a;			// Address of the record in the main file
 	int* p;			// Pointer to the child page
 	int d;
+
+	int getM();
 };
 
 #endif /* PAGE_PAGE_H_ */

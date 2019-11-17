@@ -215,9 +215,15 @@ void BTree::printIndex(){
 		}
 		if(reached_trash)
 			std::cout << "██████┃\n";
-		else
-			std::cout << std::setw(6) << p[2*d] << "┃\n";
+		else{
+			if(p[2*d] == NIL)
+			std::cout << "  NIL ┃\n";
+		else{
+			pages.push(p[2*d]);
+			std::cout << std::setw(6) << p[2*d];
+		}
 
+		}
 		std::cout << "┗";
 		for(int i=0; i<6*d; i++)
 			std::cout << "━━━━━━┷";
@@ -338,7 +344,7 @@ int BTree::ReadRecord(int x){
 			s = currPage->p[0];
 			continue;
 		}
-		for(int i=0; i<2*d-1; i++){
+		for(int i=0; i<2*d; i++){
 			if(currPage->x[i] == NO_KEY){
 				return NOT_FOUND;
 			}
@@ -346,12 +352,12 @@ int BTree::ReadRecord(int x){
 				int res = currPage->a[i];
 				return res;
 			}
-			if(x > currPage->x[i] && x < currPage->x[i+1]){
+			if(i > 0 && x > currPage->x[i-1] && x < currPage->x[i]){
 				s = currPage->p[i+1];
 				continue;
 			}
 		}
-		if(x > currPage->x[2*d]){
+		if(x > currPage->x[2*d-1]){
 			s = currPage->p[2*d];
 			continue;
 		}
@@ -375,42 +381,186 @@ int BTree::InsertRecord(Record rec){
 	int res = ReadRecord(rec.getKey());
 	if(res != NOT_FOUND)
 		return ALREADY_EXISTS;
-	int m = 0;
-	for(int i=0; i<2*d; i++){
-		if(currPage->x[i] != NO_KEY)
-			m++;
-		else
+	int offset = saveRecord(rec);
+	int cpointer = NIL;
+	while(true){
+		int m = this->currPage->getM();
+		if(m < 2*d){
+			int key_temp;
+			int offset_temp;
+			int cpointer_temp;
+			for(int i=0; i<2*d; i++){
+				if(currPage->x[i] == NO_KEY){
+					currPage->x[i] = rec.getKey();
+					currPage->a[i] = offset;
+					break;
+				}
+				if(rec.getKey() < currPage->x[i]){
+					key_temp = currPage->x[i];
+					offset_temp = currPage->a[i];
+					cpointer_temp = currPage->p[i];
+					currPage->x[i] = rec.getKey();
+					currPage->a[i] = offset;
+					currPage->p[i] = cpointer;
+					offset = offset_temp;
+					rec.setKey(key_temp);
+				}
+			}
+			// TODO when caching works, this wont be necessary
+			updatePage(currPageOffset, currPage);
+			return OK;
+		}
+		// TODO For now returing early to not implemented functions
+		return 1;
+		int res = tryCompensation(rec);
+		if(res == COMPENSATION_NOT_POSSIBLE){
+			cpointer = split(rec);
+			int parent = this->currPage->parent;
+			delete this->currPage;
+			loadPage(parent);
+		} else{
+			// Insert again
+		}
+	}
+
+	return 1;
+}
+
+// TODO fix it, it's greedy now and always fills the sibling how much it can
+int BTree::tryCompensation(Record rec){
+	int result = COMPENSATION_NOT_POSSIBLE;
+	bool done = false;
+	Page *overflowPage = this->currPage;
+	Page *parent, *leftSibling, *rightSibling;
+	parent = leftSibling = rightSibling = NULL;
+	int overflowPageOffset = this->currPageOffset;
+	if(overflowPage->parent == NIL)
+		return COMPENSATION_NOT_POSSIBLE;
+	loadPage(overflowPage->parent);
+	parent = this->currPage;
+	int parentOffset = this->currPageOffset;
+	int pIndex=0;
+	// It's his parent he has to be here somewhere
+	for(pIndex=0; pIndex<2*d+1;pIndex++){
+		if(this->currPage->p[pIndex] == overflowPageOffset)
 			break;
 	}
-	if(m < 2*d){
-		int offset = saveRecord(rec);
-		int key_temp;
-		int offset_temp;
-		for(int i=0; i<2*d; i++){
-			if(currPage->x[i] == NO_KEY){
-				currPage->x[i] = rec.getKey();
-				currPage->a[i] = offset;
-				break;
+	int leftSiblingOffset = pIndex > 0 ? this->currPage->p[pIndex-1] : NIL;
+	int rightSiblingOffset = pIndex < 2*d ? this->currPage->p[pIndex+1] : NIL;
+
+	// Check with left sibling first
+	if(leftSiblingOffset != NIL){
+		Page* leftSibling = loadPage(leftSiblingOffset);
+		int m = leftSibling->getM();
+		if(m<2*d){
+			// Possible compensation
+			/* TODO not correct, we need to include the new record in distribution first
+			int oIndex = 0;
+			leftSibling->x[m] = parent->x[pindex];
+			leftSibling->a[m] = parent->a[pindex];
+			leftSibling->p[m+1] = overflowPage->p[0];
+			m++;
+			// Fill up sibling as much as we can
+			for(int i=m; i<2*d; i++, oIndex++){
+				leftSibling->x[i] = overflowPage->x[oIndex];
+				leftSibling->a[i] = overflowPage->a[oIndex];
+				leftSibling->p[i+1] = overflowPage->p[oIndex+1];
 			}
-			if(rec.getKey() < currPage->x[i]){
-				key_temp = currPage->x[i];
-				offset_temp = currPage->a[i];
-				currPage->x[i] = rec.getKey();
-				currPage->a[i] = offset;
-				offset = offset_temp;
-				rec.setKey(key_temp);
+			parent->x[pindex] = overflowPage->x[oIndex];
+			parent->a[pindex] = overflowPage->x[oIndex];
+			int nIndex;
+			for(nIndex=0; oIndex<2*d; nIndex++, oIndex++){
+				overflowPage->x[nIndex] = overflowPage->x[oIndex];
+				overflowPage->a[nIndex] = overflowPage->a[oIndex];
+				overflowPage->p[nIndex] = overflowPage->p[oIndex];
+				overflowPage->x[oIndex] = NO_KEY;
+				overflowPage->a[oIndex] = NIL;
+				overflowPage->p[oIndex] = NIL;
 			}
+			//overflowPage->x[nIndex] = rec.getKey();
+			//overflowPage->a[nIndex] = recordOffset;
+			overflowPage->p[nIndex] = overflowPage->p[oIndex];
+			*/
+			done = true;
+			result = OK;
+			updatePage(leftSiblingOffset, leftSibling);
 		}
-		// TODO when caching works, this wont be necessary
-		updatePage(currPageOffset, currPage);
-		return OK;
+
 	}
-
-	//TODO TRY_COMPENSATION
-
-	//TODO MAKE_SPLIT
-
-	// Return random error for time being
-	return ALREADY_EXISTS;
+	// Then right sibling
+	if(rightSiblingOffset != NIL && !done){
+		Page* rightSibling = loadPage(rightSiblingOffset);
+		int m = rightSibling->getM();
+		if(m<2*d){
+			// Possible compensation
+			/* TODO not correct, we need to include the new record in distribution first
+			int rIndex = 2*d-1;
+			for(int i=m; i>0; i--, rIndex--){
+				rightSibling->x[rIndex] = rightSibling->x[i];
+				rightSibling->a[rIndex] = rightSibling->a[i];
+			}
+			rightSibling->x[rIndex] = parent->x[pindex];
+			rightSibling->a[rIndex] = parent->a[pindex];
+			int oIndex=2*d-1;
+			for(;rIndex>0; rIndex--, oIndex--){
+				rightSibling->x[rIndex] = overflowPage->x[oIndex];
+				rightSibling->a[rIndex] = overflowPage->a[oIndex];
+				overflowPage->x[oIndex] = NO_KEY;
+				overflowPage->a[oIndex] = NIL;
+			}
+			parent->x[pindex] = overflowPage->x[oIndex];
+			parent->a[pindex] = overflowPage->x[oIndex];
+			overflowPage->x[oIndex] = NO_KEY;
+			overflowPage->a[oIndex] = NIL;
+			*/
+			result = OK;
+			done = true;
+			updatePage(rightSiblingOffset, rightSibling);
+		}
+	}
+	if(done){
+		updatePage(overflowPageOffset, overflowPage);
+		updatePage(parentOffset, parent);
+	}
+	this->currPage = overflowPage;
+	this->currPageOffset = overflowPageOffset;
+	if(leftSibling != NULL)
+		delete leftSibling;
+	if(rightSibling != NULL)
+		delete rightSibling;
+	if(parent != NULL)
+		delete parent;
+	return result;
 }
+
+int BTree::split(Record& rec){
+	Page* overflowPage = this->currPage;
+	int overFlowPageOffset = this->currPageOffset;
+	Page* newPage = new Page(this->d);
+	newPage->parent = overflowPage->parent;
+	int newPageOffset = savePage(newPage);
+	/* TODO not correct, need to use the new record in redistribution.
+	int middle_key = (1+2*d)/2 -1;
+	// Write to new page
+	int nIndex=0;
+	for(int i=middle_key+1, nIndex=0; i<2*d; i++){
+		newPage->x[nIndex] = overflowPage->x[i];
+		newPage->a[nIndex] = overflowPage->a[i];
+		newPage->p[nIndex] = overflowPage->p[i];
+		overflowPage->x[i] = NO_KEY;
+		overflowPage->a[i] = NIL;
+		overflowPage->p[i] = NIL;
+	}
+	newPage->p[2*d] = overflowPage->p[2*d];
+	*/
+	return 1;
+}
+
+
+
+
+
+
+
+
 

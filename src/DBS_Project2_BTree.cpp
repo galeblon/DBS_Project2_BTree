@@ -21,6 +21,7 @@ int main() {
 	while(!programFinished){
 		std::cin >> action;
 		programFinished = parseAction(action, tree);
+		std::cin.clear();
 	}
 
 	std::cout << "Goodbye.\n";

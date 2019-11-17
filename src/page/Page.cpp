@@ -27,3 +27,14 @@ Page::~Page(){
 	delete[] this->a;
 	delete[] this->p;
 }
+
+int Page::getM(){
+	int m;
+	for(int i=0; i<2*d; i++){
+		if(x[i] != NO_KEY)
+			m++;
+		else
+			break;
+	}
+	return m;
+}
