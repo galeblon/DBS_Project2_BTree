@@ -57,9 +57,12 @@ private:
 
 	int ReadRecord(int x);
 
-	int tryCompensation(Record rec);
+	int tryCompensation(Record rec, int recordOffset, int nPOffset);
+	//TODO make a distribution helper for compensation
+	void distribute(Page* ovP, Page* sbP, Page* pP, Record rec, int recordOffset, int nPOffset, int parentIndex);
+	void distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset, int nPOffset);
 
-	int split(Record& rec);
+	int split(Record& rec, int& recordOffset, int nPOffset);
 
 	//TODO turn it into a cache h-sized
 	Page* currPage;

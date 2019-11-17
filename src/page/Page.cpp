@@ -29,7 +29,7 @@ Page::~Page(){
 }
 
 int Page::getM(){
-	int m;
+	int m = 0;
 	for(int i=0; i<2*d; i++){
 		if(x[i] != NO_KEY)
 			m++;
