@@ -404,6 +404,7 @@ int BTree::InsertRecord(Record rec){
 					currPage->p[i] = cpointer;
 					offset = offset_temp;
 					rec.setKey(key_temp);
+					cpointer = cpointer_temp;
 				}
 			}
 			// TODO when caching works, this wont be necessary
