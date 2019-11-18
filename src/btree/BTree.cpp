@@ -381,6 +381,7 @@ Record BTree::SearchForRecord(int x){
 	}
 }
 
+// TODO return early if not connected to db
 int BTree::InsertRecord(Record rec){
 	int res = ReadRecord(rec.getKey());
 	if(res != NOT_FOUND)
@@ -397,6 +398,7 @@ int BTree::InsertRecord(Record rec){
 				if(currPage->x[i] == NO_KEY){
 					currPage->x[i] = rec.getKey();
 					currPage->a[i] = offset;
+					currPage->p[i+1] = cpointer;
 					break;
 				}
 				if(currPage->x[i] == rec.getKey()){
@@ -460,7 +462,7 @@ int BTree::tryCompensation(Record rec, int recordOffset, int nPOffset){
 		int m = leftSibling->getM();
 		if(m<2*d){
 			// Possible compensation
-			distribute(overflowPage, leftSibling, parent, rec, recordOffset, nPOffset, pIndex);
+			distribute(overflowPage, leftSibling, parent, rec, recordOffset, nPOffset, pIndex, true);
 			done = true;
 			result = OK;
 			updatePage(leftSiblingOffset, leftSibling);
@@ -473,7 +475,7 @@ int BTree::tryCompensation(Record rec, int recordOffset, int nPOffset){
 		int m = rightSibling->getM();
 		if(m<2*d){
 			// Possible compensation
-			distribute(overflowPage, rightSibling, parent, rec, recordOffset, nPOffset, pIndex);
+			distribute(overflowPage, rightSibling, parent, rec, recordOffset, nPOffset, pIndex, false);
 			result = OK;
 			done = true;
 			updatePage(rightSiblingOffset, rightSibling);
@@ -523,82 +525,126 @@ int BTree::split(Record& rec, int& recordOffset, int nPOffset){
 	return newPageOffset;
 }
 
-void BTree::distribute(Page* ovP, Page* sbP, Page* pP, Record rec, int recordOffset, int nPOffset, int parentIndex){
+void BTree::distribute(Page* ovP, Page* sbP, Page* pP, Record rec, int recordOffset, int nPOffset, int parentIndex, bool left){
 	// Oveflow has 2*d, sibling has m, one from parent and we also insert 1 record
 	int toDistribute = 2*d + sbP->getM() + 1 + 1;
 	int* x = new int[toDistribute];
 	int* a = new int[toDistribute];
 	int* p = new int[toDistribute+1];
 
-	// find index where new recod should be inserted
 	int rIndex = 0;
-	for(; rIndex<2*d; rIndex++)
-		if(ovP->x[rIndex] > rec.getKey())
+	if(left){
+		// Fill the start with sibling
+		int sbM = sbP->getM();
+		for(int i=0; i<sbM; i++, rIndex++){
+			x[rIndex] = sbP->x[rIndex];
+			a[rIndex] = sbP->a[rIndex];
+			p[rIndex] = sbP->p[rIndex];
+			sbP->x[rIndex] = NO_KEY;
+			sbP->a[rIndex] = NIL;
+			sbP->p[rIndex] = NIL;
+		}
+		p[rIndex] = sbP->p[sbM];
+		sbP->p[sbM] = NIL;
+
+		// Insert the parent
+		x[rIndex] = pP->x[parentIndex-1];
+		a[rIndex] = pP->a[parentIndex-1];
+		rIndex++;
+	}
+
+	int newRecIndex = 0;
+	// find index where new recod should be inserted
+	for(; newRecIndex<2*d; newRecIndex++)
+		if(ovP->x[newRecIndex] > rec.getKey())
 			break;
 
 	// We can rewrite all up to conflicting record
-	for(int i=0; i<rIndex; i++){
-		x[i] = ovP->x[i];
-		a[i] = ovP->a[i];
-		p[i] = ovP->p[i];
+	for(int i=0; i<newRecIndex; i++){
+		x[rIndex + i] = ovP->x[i];
+		a[rIndex + i] = ovP->a[i];
+		p[rIndex + i] = ovP->p[i];
 		ovP->x[i] = NO_KEY;
 		ovP->a[i] = NIL;
 		ovP->p[i] = NIL;
 	}
 	// Insert the new record
-	x[rIndex] = rec.getKey();
-	a[rIndex] = recordOffset;
-	p[rIndex] = ovP->p[rIndex];
-	p[rIndex+1] = nPOffset;
+	x[rIndex + newRecIndex] = rec.getKey();
+	a[rIndex + newRecIndex] = recordOffset;
+	p[rIndex + newRecIndex] = ovP->p[rIndex];
+	p[rIndex + newRecIndex + 1] = nPOffset;
 	rIndex++;
 	ovP->p[rIndex] = NIL;
 
 	// Insert the rest from the overflow page
-	for(;rIndex<2*d; rIndex++){
-		x[rIndex] = ovP->x[rIndex];
-		a[rIndex] = ovP->a[rIndex];
-		p[rIndex+1] = ovP->p[rIndex+1];
+	for(;newRecIndex<2*d; newRecIndex++){
+		x[rIndex+newRecIndex] = ovP->x[rIndex];
+		a[rIndex+newRecIndex] = ovP->a[rIndex];
+		p[rIndex+newRecIndex+1] = ovP->p[rIndex+1];
 		ovP->x[rIndex] = NO_KEY;
 		ovP->a[rIndex] = NIL;
 		ovP->p[rIndex+1] = NIL;
 	}
 
-	// insert the parent
-	x[rIndex] = pP->x[parentIndex];
-	a[rIndex] = pP->a[parentIndex];
-	rIndex++;
-
-	// Fill the rest with sibling
-	for(int i=0; i<sbP->getM(); i++, rIndex++){
-		x[rIndex] = sbP->x[rIndex];
-		a[rIndex] = sbP->a[rIndex];
-		p[rIndex] = sbP->p[rIndex];
-		sbP->x[rIndex] = NO_KEY;
-		sbP->a[rIndex] = NIL;
-		sbP->p[rIndex] = NIL;
+	if(!left){
+		// insert the parent
+		x[rIndex] = pP->x[parentIndex];
+		a[rIndex] = pP->a[parentIndex];
+		rIndex++;
+		// Fill the rest with sibling
+		int sbM = sbP->getM();
+		for(int i=0; i<sbM; i++, rIndex++){
+			x[rIndex] = sbP->x[rIndex];
+			a[rIndex] = sbP->a[rIndex];
+			p[rIndex] = sbP->p[rIndex];
+			sbP->x[rIndex] = NO_KEY;
+			sbP->a[rIndex] = NIL;
+			sbP->p[rIndex] = NIL;
+		}
+		p[rIndex] = sbP->p[sbM];
+		sbP->p[sbM] = NIL;
 	}
-	p[rIndex] = sbP->p[sbP->getM()];
-	sbP->p[sbP->getM()] = NIL;
 
 	// Get the middle element
 	int middle = toDistribute/2;
 	//Write him to parent
-	pP->x[parentIndex] = x[middle];
-	pP->a[parentIndex] = a[middle];
+	if(left){
+		pP->x[parentIndex-1] = x[middle];
+		pP->a[parentIndex-1] = a[middle];
+	} else{
+		pP->x[parentIndex] = x[middle];
+		pP->a[parentIndex] = a[middle];
+	}
 	// Fill back overflow
-	int i;
-	for(i=0; i<middle; i++){
-		ovP->x[i] = x[i];
-		ovP->a[i] = a[i];
-		ovP->p[i] = p[i];
+	if(!left){
+		int i;
+		for(i=0; i<middle; i++){
+			ovP->x[i] = x[i];
+			ovP->a[i] = a[i];
+			ovP->p[i] = p[i];
+		}
+		ovP->p[i+1] = p[i+1];
+		for(int j=middle+1, i=0; j<toDistribute; j++, i++){
+			sbP->x[i] = x[j];
+			sbP->a[i] = a[j];
+			sbP->p[i] = p[j];
+		}
+		sbP->p[i+1] = p[toDistribute];
+	} else {
+		int i;
+		for(i=0; i<middle; i++){
+			sbP->x[i] = x[i];
+			sbP->a[i] = a[i];
+			sbP->p[i] = p[i];
+		}
+		sbP->p[i+1] = p[i+1];
+		for(int j=middle+1, i=0; j<toDistribute; j++, i++){
+			ovP->x[i] = x[j];
+			ovP->a[i] = a[j];
+			ovP->p[i] = p[j];
+		}
+		ovP->p[i+1] = p[toDistribute];
 	}
-	ovP->p[i+1] = p[i+1];
-	for(int j=middle+1, i=0; j<toDistribute; j++, i++){
-		sbP->x[i] = x[j];
-		sbP->a[i] = a[j];
-		sbP->p[i] = p[j];
-	}
-	sbP->p[i+1] = p[toDistribute];
 
 	delete[] x;
 	delete[] a;
