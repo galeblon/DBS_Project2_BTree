@@ -357,7 +357,7 @@ int BTree::ReadRecord(int x){
 				return res;
 			}
 			if(i > 0 && x > currPage->x[i-1] && x < currPage->x[i]){
-				s = currPage->p[i+1];
+				s = currPage->p[i];
 				continue;
 			}
 		}
@@ -402,15 +402,15 @@ int BTree::InsertRecord(Record rec){
 					break;
 				}
 				if(currPage->x[i] == rec.getKey()){
-					return OK;
+					return OK; // When created new root
 				}
 				if(rec.getKey() < currPage->x[i]){
 					key_temp = currPage->x[i];
 					offset_temp = currPage->a[i];
-					cpointer_temp = currPage->p[i];
+					cpointer_temp = currPage->p[i+1];
 					currPage->x[i] = rec.getKey();
 					currPage->a[i] = offset;
-					currPage->p[i] = cpointer;
+					currPage->p[i+1] = cpointer;
 					offset = offset_temp;
 					rec.setKey(key_temp);
 					cpointer = cpointer_temp;
@@ -569,39 +569,48 @@ void BTree::distribute(Page* ovP, Page* sbP, Page* pP, Record rec, int recordOff
 		ovP->p[i] = NIL;
 	}
 	// Insert the new record
-	x[rIndex + newRecIndex] = rec.getKey();
-	a[rIndex + newRecIndex] = recordOffset;
-	p[rIndex + newRecIndex] = ovP->p[rIndex];
-	p[rIndex + newRecIndex + 1] = nPOffset;
-	rIndex++;
-	ovP->p[rIndex] = NIL;
+	if(left){
+		x[rIndex + newRecIndex] = rec.getKey();
+		a[rIndex + newRecIndex] = recordOffset;
+		p[rIndex + newRecIndex] = ovP->p[newRecIndex];
+		p[rIndex + newRecIndex + 1] = nPOffset;
+		rIndex++;
+		ovP->p[rIndex] = NIL;
+	} else {
+		x[rIndex + newRecIndex] = rec.getKey();
+		a[rIndex + newRecIndex] = recordOffset;
+		p[rIndex + newRecIndex] = ovP->p[rIndex + newRecIndex];
+		p[rIndex + newRecIndex + 1] = nPOffset;
+		rIndex++;
+		ovP->p[rIndex + newRecIndex] = NIL;
+	}
 
 	// Insert the rest from the overflow page
 	for(;newRecIndex<2*d; newRecIndex++){
-		x[rIndex+newRecIndex] = ovP->x[rIndex];
-		a[rIndex+newRecIndex] = ovP->a[rIndex];
-		p[rIndex+newRecIndex+1] = ovP->p[rIndex+1];
-		ovP->x[rIndex] = NO_KEY;
-		ovP->a[rIndex] = NIL;
-		ovP->p[rIndex+1] = NIL;
+		x[rIndex+newRecIndex] = ovP->x[newRecIndex];
+		a[rIndex+newRecIndex] = ovP->a[newRecIndex];
+		p[rIndex+newRecIndex+1] = ovP->p[newRecIndex+1];
+		ovP->x[newRecIndex] = NO_KEY;
+		ovP->a[newRecIndex] = NIL;
+		ovP->p[newRecIndex+1] = NIL;
 	}
 
 	if(!left){
 		// insert the parent
-		x[rIndex] = pP->x[parentIndex];
-		a[rIndex] = pP->a[parentIndex];
+		x[newRecIndex+rIndex] = pP->x[parentIndex];
+		a[newRecIndex+rIndex] = pP->a[parentIndex];
 		rIndex++;
 		// Fill the rest with sibling
 		int sbM = sbP->getM();
 		for(int i=0; i<sbM; i++, rIndex++){
-			x[rIndex] = sbP->x[rIndex];
-			a[rIndex] = sbP->a[rIndex];
-			p[rIndex] = sbP->p[rIndex];
-			sbP->x[rIndex] = NO_KEY;
-			sbP->a[rIndex] = NIL;
-			sbP->p[rIndex] = NIL;
+			x[newRecIndex + rIndex] = sbP->x[i];
+			a[newRecIndex + rIndex] = sbP->a[i];
+			p[newRecIndex + rIndex] = sbP->p[i];
+			sbP->x[i] = NO_KEY;
+			sbP->a[i] = NIL;
+			sbP->p[i] = NIL;
 		}
-		p[rIndex] = sbP->p[sbM];
+		p[newRecIndex + rIndex] = sbP->p[sbM];
 		sbP->p[sbM] = NIL;
 	}
 
@@ -678,17 +687,17 @@ void BTree::distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset
 	a[rIndex] = recordOffset;
 	p[rIndex] = ovP->p[rIndex];
 	p[rIndex+1] = nPOffset;
-	//rIndex++;
+	rIndex++;
 	ovP->p[rIndex] = NIL;
 
 	// Insert the rest from the overflow page
-	for(;rIndex<2*d; rIndex++){
-		x[rIndex] = ovP->x[rIndex];
-		a[rIndex] = ovP->a[rIndex];
-		p[rIndex+1] = ovP->p[rIndex+1];
-		ovP->x[rIndex] = NO_KEY;
-		ovP->a[rIndex] = NIL;
-		ovP->p[rIndex+1] = NIL;
+	for(;rIndex-1<2*d; rIndex++){
+		x[rIndex] = ovP->x[rIndex-1];
+		a[rIndex] = ovP->a[rIndex-1];
+		p[rIndex+1] = ovP->p[rIndex-1+1];
+		ovP->x[rIndex-1] = NO_KEY;
+		ovP->a[rIndex-1] = NIL;
+		ovP->p[rIndex-1+1] = NIL;
 	}
 
 	// Get the middle element
