@@ -29,10 +29,15 @@ public:
 	// Basic operations
 	Record SearchForRecord(int x);
 	int InsertRecord(Record rec);
+	int UpdateRecord(Record rec);
 
 	// Helpers (visualization)
 	void printMainMem();
 	void printIndex();
+
+	// Helper (statistics)
+	void printIOStatistics();
+	void resetIOCounters();
 
 private:
 	bool isLoaded;
@@ -54,20 +59,26 @@ private:
 
 	Record loadRecord(int offset);
 	int saveRecord(Record record);
+	void updateRecord(int offset, Record record);
 
-	int ReadRecord(int x);
+	int readRecord(int x);
 
 	int tryCompensation(Record rec, int recordOffset, int nPOffset);
-	//TODO make a distribution helper for compensation
 	void distribute(Page* ovP, Page* sbP, Page* pP, Record rec, int recordOffset, int nPOffset, int parentIndex, bool left);
-	void distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset, int nPOffset);
 
 	int split(Record& rec, int& recordOffset, int nPOffset);
+	void distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset, int nPOffset);
 
 	//TODO turn it into a cache h-sized
 	Page* currPage;
 	int currPageOffset;
 
+
+	// For disk usage statistics
+	int diskReadMainMemory;
+	int diskReadIndexMemory;
+	int diskWriteMainMemory;
+	int diskWriteIndexMemory;
 };
 
 #endif /* BTREE_BTREE_H_ */

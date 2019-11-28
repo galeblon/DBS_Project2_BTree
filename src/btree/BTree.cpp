@@ -240,6 +240,8 @@ Page* BTree::loadPage(int offset){
 	// TODO ask cache first
 
 	// Load from index memory
+	diskReadIndexMemory++;
+
 	Page* lPage = new Page(this->d);
 	int* buffer = new int[6*this->d+2];
 	this->indexFile.seekg(offset);
@@ -262,6 +264,8 @@ Page* BTree::loadPage(int offset){
 }
 
 int BTree::savePage(Page* page){
+	diskWriteIndexMemory++;
+
 	int* buffer = new int[6*this->d+2];
 	buffer[0] = page->parent;
 	for(int i=1; i<2*d+1; i++)
@@ -281,6 +285,8 @@ int BTree::savePage(Page* page){
 }
 
 void BTree::updatePage(int offset, Page* page){
+	diskWriteIndexMemory++;
+
 	int* buffer = new int[6*this->d+2];
 	buffer[0] = page->parent;
 	for(int i=1; i<2*d+1; i++)
@@ -299,6 +305,9 @@ void BTree::updatePage(int offset, Page* page){
 
 Record BTree::loadRecord(int offset){
 	//TODO ask cache first
+
+	diskReadMainMemory++;
+
 	Record record;
 	int* buffer = new int[4];
 	this->mainMemoryFile.seekg(offset);
@@ -312,6 +321,8 @@ Record BTree::loadRecord(int offset){
 }
 
 int BTree::saveRecord(Record record){
+	diskWriteMainMemory++;
+
 	int* buffer = new int[4];
 	buffer[0] = record.getKey();
 	buffer[1] = record.getA();
@@ -324,13 +335,29 @@ int BTree::saveRecord(Record record){
 	this->mainMemoryFile.flush();
 	this->mainMemoryFile.clear();
 
+	delete[] buffer;
 	return offset;
+}
+
+void BTree::updateRecord(int offset, Record record){
+	diskWriteMainMemory++;
+
+	int* buffer = new int[4];
+	buffer[0] = record.getKey();
+	buffer[1] = record.getA();
+	buffer[2] = record.getB();
+	buffer[3] = record.getC();
+
+	this->mainMemoryFile.seekg(offset);
+	this->mainMemoryFile.write(reinterpret_cast<const char *>(buffer), 4*sizeof(int));
+	this->mainMemoryFile.flush();
+	this->mainMemoryFile.clear();
+
 	delete[] buffer;
 }
 
 
-
-int BTree::ReadRecord(int x){
+int BTree::readRecord(int x){
 	int s = this->rootPageOffset;
 	//Page* page;
 
@@ -369,7 +396,10 @@ int BTree::ReadRecord(int x){
 }
 
 Record BTree::SearchForRecord(int x){
-	int offset = ReadRecord(x);
+	if(!this->isLoaded){
+		throw new std::runtime_error("Not connected to any BTree");
+	}
+	int offset = readRecord(x);
 	if(offset == NOT_FOUND){
 		Record rec;
 		rec.print(offset);
@@ -381,9 +411,22 @@ Record BTree::SearchForRecord(int x){
 	}
 }
 
-// TODO return early if not connected to db
+int BTree::UpdateRecord(Record rec){
+	if(!this->isLoaded){
+		throw new std::runtime_error("Not connected to any BTree");
+	}
+	int offset = readRecord(rec.getKey());
+	if(offset == NOT_FOUND)
+		return NOT_FOUND;
+	updateRecord(offset, rec);
+	return OK;
+}
+
 int BTree::InsertRecord(Record rec){
-	int res = ReadRecord(rec.getKey());
+	if(!this->isLoaded){
+		throw new std::runtime_error("Not connected to any BTree");
+	}
+	int res = readRecord(rec.getKey());
 	if(res != NOT_FOUND)
 		return ALREADY_EXISTS;
 	int offset = saveRecord(rec);
@@ -423,7 +466,6 @@ int BTree::InsertRecord(Record rec){
 		int res = tryCompensation(rec, offset, cpointer);
 		if(res == COMPENSATION_NOT_POSSIBLE){
 			cpointer = split(rec, offset, cpointer);
-			// TODO if parent is nill we will have to create new page
 			int parent = this->currPage->parent;
 			delete this->currPage;
 			loadPage(parent);
@@ -729,6 +771,16 @@ void BTree::distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset
 
 
 
+void BTree::printIOStatistics(){
+	std::cout << "Main  Memory: " << diskReadMainMemory << " reads, " << diskWriteMainMemory << " writes.\n"
+			  << "Index Memory: " << diskReadIndexMemory << " reads, " << diskWriteIndexMemory << " writes.\n";
+}
 
+void BTree::resetIOCounters(){
+	this->diskReadIndexMemory = 0;
+	this->diskReadMainMemory = 0;
+	this->diskWriteIndexMemory = 0;
+	this->diskWriteMainMemory = 0;
+}
 
 

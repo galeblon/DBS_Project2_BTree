@@ -22,6 +22,7 @@ int main() {
 		std::cin >> action;
 		programFinished = parseAction(action, tree);
 		std::cin.clear();
+		tree.resetIOCounters();
 	}
 
 	std::cout << "Goodbye.\n";
@@ -71,21 +72,36 @@ bool parseAction(char action, BTree& tree){
 				} else if(res == OK){
 					std::cout << "\tRecord insert OK\n";
 				}
+				tree.printIOStatistics();
 			}
 				break;
-			case 'U':
-				std::cout << "Record update operation here\n";
+			case 'U':{
+				//std::cout << "Record update operation here\n";
+				std::cin >> valI1 >> valI2 >> valI3 >> valI4;
+				Record rec(valI1, valI2, valI3, valI4);
+				int res = tree.UpdateRecord(rec);
+				if(res == NOT_FOUND){
+					std::cout << "\tNo Record with such key\n";
+				} else if (res == OK){
+					std::cout << "\tRecord update OK\n";
+				}
+				tree.printIOStatistics();
+			}
 				break;
 			case 'D':
 				std::cout << "Record remove operation here\n";
+
+				tree.printIOStatistics();
 				break;
 			case 'R':
 				//std::cout << "Record read operation here\n";
 				std::cin >> valI1;
 				tree.SearchForRecord(valI1);
+				tree.printIOStatistics();
 				break;
 			case 'A':
 				std::cout << "All records read operation here\n";
+				tree.printIOStatistics();
 				break;
 			case 'X':
 				//std::cout << "Display index file operation here\n";
