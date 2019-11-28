@@ -23,7 +23,7 @@ BTree::~BTree(){
 }
 
 
-void BTree::createBTree(std::string name, int d){
+void BTree::CreateBTree(std::string name, int d){
 	if(this->isLoaded){
 		throw new std::runtime_error("The BTree is already created");
 	}
@@ -67,7 +67,7 @@ void BTree::createBTree(std::string name, int d){
 	this->isLoaded = true;
 }
 
-void BTree::loadBTree(std::string name){
+void BTree::LoadBTree(std::string name){
 	if(this->isLoaded){
 		throw new std::runtime_error("The BTree is already loaded");
 	}
@@ -109,7 +109,7 @@ void BTree::loadMetaData(){
 
 // This is a helper function, it doesn't contribute to I/O operations count,
 // and doesn't change the state of the tree
-void BTree::printMainMem(){
+void BTree::PrintMainMem(){
 	if(!this->isLoaded){
 		throw new std::runtime_error("No BTree is loaded");
 	}
@@ -140,7 +140,7 @@ void BTree::printMainMem(){
 // This is a helper function, it doesn't contribute to I/O operations count,
 // and doesn't change the state of the tree
 // Displays all BTree pages DFS style.
-void BTree::printIndex(){
+void BTree::PrintIndex(){
 	//TODO optimize code to avoid repetable sections of code
 	if(!this->isLoaded){
 		throw new std::runtime_error("No BTree is loaded");
@@ -771,12 +771,12 @@ void BTree::distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset
 
 
 
-void BTree::printIOStatistics(){
+void BTree::PrintIOStatistics(){
 	std::cout << "Main  Memory: " << diskReadMainMemory << " reads, " << diskWriteMainMemory << " writes.\n"
 			  << "Index Memory: " << diskReadIndexMemory << " reads, " << diskWriteIndexMemory << " writes.\n";
 }
 
-void BTree::resetIOCounters(){
+void BTree::ResetIOCounters(){
 	this->diskReadIndexMemory = 0;
 	this->diskReadMainMemory = 0;
 	this->diskWriteIndexMemory = 0;
@@ -784,3 +784,21 @@ void BTree::resetIOCounters(){
 }
 
 
+void BTree::SequentialRead(){
+	sequentialRead(this->rootPageOffset);
+}
+
+void BTree::sequentialRead(int offset){
+	if(offset == NIL)
+		return;
+	Page* page = loadPage(offset);
+	int m = page->getM();
+	for(int i=0; i<m; i++){
+		sequentialRead(page->p[i]);
+		Record rec = loadRecord(page->a[i]);
+		rec.print(page->a[i]);
+	}
+	if(m)
+		sequentialRead(page->p[m]);
+	delete page;
+}

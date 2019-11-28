@@ -22,7 +22,7 @@ int main() {
 		std::cin >> action;
 		programFinished = parseAction(action, tree);
 		std::cin.clear();
-		tree.resetIOCounters();
+		tree.ResetIOCounters();
 	}
 
 	std::cout << "Goodbye.\n";
@@ -55,12 +55,12 @@ bool parseAction(char action, BTree& tree){
 			case 'L':
 				//std::cout << "Loading db operation here\n";
 				std::cin >> valStr;
-				tree.loadBTree(valStr);
+				tree.LoadBTree(valStr);
 				break;
 			case 'C':
 				//std::cout << "Creating db operation here\n";
 				std::cin >> valStr >> valI1;
-				tree.createBTree(valStr, valI1);
+				tree.CreateBTree(valStr, valI1);
 				break;
 			case 'I':{
 				//std::cout << "Record insert operation here\n";
@@ -72,7 +72,7 @@ bool parseAction(char action, BTree& tree){
 				} else if(res == OK){
 					std::cout << "\tRecord insert OK\n";
 				}
-				tree.printIOStatistics();
+				tree.PrintIOStatistics();
 			}
 				break;
 			case 'U':{
@@ -85,31 +85,32 @@ bool parseAction(char action, BTree& tree){
 				} else if (res == OK){
 					std::cout << "\tRecord update OK\n";
 				}
-				tree.printIOStatistics();
+				tree.PrintIOStatistics();
 			}
 				break;
 			case 'D':
 				std::cout << "Record remove operation here\n";
 
-				tree.printIOStatistics();
+				tree.PrintIOStatistics();
 				break;
 			case 'R':
 				//std::cout << "Record read operation here\n";
 				std::cin >> valI1;
 				tree.SearchForRecord(valI1);
-				tree.printIOStatistics();
+				tree.PrintIOStatistics();
 				break;
 			case 'A':
-				std::cout << "All records read operation here\n";
-				tree.printIOStatistics();
+				//std::cout << "All records read operation here\n";
+				tree.SequentialRead();
+				tree.PrintIOStatistics();
 				break;
 			case 'X':
 				//std::cout << "Display index file operation here\n";
-				tree.printIndex();
+				tree.PrintIndex();
 				break;
 			case 'M':
 				//std::cout << "Display main memory file operation here\n";
-				tree.printMainMem();
+				tree.PrintMainMem();
 				break;
 			case 'Q':
 				return true;

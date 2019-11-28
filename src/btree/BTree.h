@@ -22,22 +22,23 @@ public:
 	BTree();
 	~BTree();
 
-	bool isReady(){ return isLoaded;}
-	void createBTree(std::string name, int d);
-	void loadBTree(std::string name);
+	bool IsReady(){ return isLoaded;}
+	void CreateBTree(std::string name, int d);
+	void LoadBTree(std::string name);
 
 	// Basic operations
 	Record SearchForRecord(int x);
 	int InsertRecord(Record rec);
 	int UpdateRecord(Record rec);
+	void SequentialRead();
 
 	// Helpers (visualization)
-	void printMainMem();
-	void printIndex();
+	void PrintMainMem();
+	void PrintIndex();
 
 	// Helper (statistics)
-	void printIOStatistics();
-	void resetIOCounters();
+	void PrintIOStatistics();
+	void ResetIOCounters();
 
 private:
 	bool isLoaded;
@@ -68,6 +69,8 @@ private:
 
 	int split(Record& rec, int& recordOffset, int nPOffset);
 	void distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset, int nPOffset);
+
+	void sequentialRead(int pageOffset);
 
 	//TODO turn it into a cache h-sized
 	Page* currPage;
