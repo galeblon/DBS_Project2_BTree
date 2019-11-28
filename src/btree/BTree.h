@@ -31,6 +31,7 @@ public:
 	int InsertRecord(Record rec);
 	int UpdateRecord(Record rec);
 	void SequentialRead();
+	int RemoveRecord(int x);
 
 	// Helpers (visualization)
 	void PrintMainMem();
@@ -65,7 +66,7 @@ private:
 	int readRecord(int x);
 
 	int tryCompensation(Record rec, int recordOffset, int nPOffset);
-	void distribute(Page* ovP, Page* sbP, Page* pP, Record rec, int recordOffset, int nPOffset, int parentIndex, bool left);
+	void distributeCompensation(Page* ovP, Page* sbP, Page* pP, Record rec, int recordOffset, int nPOffset, int parentIndex, bool left);
 
 	int split(Record& rec, int& recordOffset, int nPOffset);
 	void distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset, int nPOffset);

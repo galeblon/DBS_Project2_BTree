@@ -422,6 +422,30 @@ int BTree::UpdateRecord(Record rec){
 	return OK;
 }
 
+
+int BTree::RemoveRecord(int x){
+	if(!this->isLoaded){
+		throw new std::runtime_error("Not connected to any BTree");
+	}
+	int offset = readRecord(x);
+	if(offset == NOT_FOUND)
+		return NOT_FOUND;
+
+	// TODO Removal procedure
+	// 1. If we are in leaf just delete
+	// 2. otherwise find min from child on right, replace  curr with min
+	// and delete min from the child page
+	// 3. Check if m<d
+	// 4a. If yes tryCompensation
+	// 4b  If not just end
+	// 5. If compensation not succesfull do a merge
+	// Merge in loop because we may need to collapse
+	int m = this->currPage->getM();
+
+
+	return OK;
+}
+
 int BTree::InsertRecord(Record rec){
 	if(!this->isLoaded){
 		throw new std::runtime_error("Not connected to any BTree");
@@ -504,7 +528,7 @@ int BTree::tryCompensation(Record rec, int recordOffset, int nPOffset){
 		int m = leftSibling->getM();
 		if(m<2*d){
 			// Possible compensation
-			distribute(overflowPage, leftSibling, parent, rec, recordOffset, nPOffset, pIndex, true);
+			distributeCompensation(overflowPage, leftSibling, parent, rec, recordOffset, nPOffset, pIndex, true);
 			done = true;
 			result = OK;
 			updatePage(leftSiblingOffset, leftSibling);
@@ -517,7 +541,7 @@ int BTree::tryCompensation(Record rec, int recordOffset, int nPOffset){
 		int m = rightSibling->getM();
 		if(m<2*d){
 			// Possible compensation
-			distribute(overflowPage, rightSibling, parent, rec, recordOffset, nPOffset, pIndex, false);
+			distributeCompensation(overflowPage, rightSibling, parent, rec, recordOffset, nPOffset, pIndex, false);
 			result = OK;
 			done = true;
 			updatePage(rightSiblingOffset, rightSibling);
@@ -567,7 +591,7 @@ int BTree::split(Record& rec, int& recordOffset, int nPOffset){
 	return newPageOffset;
 }
 
-void BTree::distribute(Page* ovP, Page* sbP, Page* pP, Record rec, int recordOffset, int nPOffset, int parentIndex, bool left){
+void BTree::distributeCompensation(Page* ovP, Page* sbP, Page* pP, Record rec, int recordOffset, int nPOffset, int parentIndex, bool left){
 	// Oveflow has 2*d, sibling has m, one from parent and we also insert 1 record
 	int toDistribute = 2*d + sbP->getM() + 1 + 1;
 	int* x = new int[toDistribute];

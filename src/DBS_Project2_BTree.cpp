@@ -88,10 +88,17 @@ bool parseAction(char action, BTree& tree){
 				tree.PrintIOStatistics();
 			}
 				break;
-			case 'D':
-				std::cout << "Record remove operation here\n";
-
+			case 'D':{
+				//std::cout << "Record remove operation here\n";
+				std::cin >> valI1;
+				int res = tree.RemoveRecord(valI1);
+				if(res == NOT_FOUND){
+					std::cout << "\tNo Record with such key\n";
+				} else if (res == OK){
+					std::cout << "\tRecord removal OK\n";
+				}
 				tree.PrintIOStatistics();
+			}
 				break;
 			case 'R':
 				//std::cout << "Record read operation here\n";
