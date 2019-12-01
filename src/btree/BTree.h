@@ -77,14 +77,12 @@ private:
 	void removeKeyFromLeafPage(Page* page, int index);
 	int tryCompensationRemoval(int ufP);
 	void distributeCompensationRemoval(int lP, int rP, int pP, int pIndex);
-	//TODO distributeCompensationRemoval
 
-	//TODO merge
-	//TODO distributeMerge
+	int merge(int ufP);
+	void distributeMerge(int lP, int rP, int pP, int pIndex);
 
 	void sequentialRead(int pageOffset);
 
-	//TODO turn it into a cache h-sized
 	Page* currPage;
 	int currPageOffset;
 

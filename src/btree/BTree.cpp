@@ -490,13 +490,23 @@ int BTree::RemoveRecord(int x){
 	}
 	while(true){
 		int m = this->currPage->getM();
-		if(m >= d)
+		if(m >= d || this->currPage->parent == NIL)
 			return OK;
 		else{
 			int res = tryCompensationRemoval(this->currPageOffset);
 			if(res == COMPENSATION_NOT_POSSIBLE){
-				// DO MERGE
-				return OK;
+				int page = merge(this->currPageOffset);
+				loadPage(page);
+				if(currPage->parent != NIL){
+					loadPage(currPage->parent);
+					if(currPage->getM() == 0){
+						rootPageOffset = page;
+						this->h--;
+						pageCache->ShrinkCache(1);
+						loadPage(page);
+						currPage->parent = NIL;
+					}
+				}
 			} else {
 				return res;
 			}
@@ -504,6 +514,93 @@ int BTree::RemoveRecord(int x){
 	}
 
 	return OK;
+}
+
+int BTree::merge(int ufP){
+	int underFlowPageOffset = ufP;
+	loadPage(currPage->parent);
+	//parent = this->currPage;
+	int parentOffset = this->currPageOffset;
+	int pIndex=0;
+	// It's his parent he has to be here somewhere
+	for(pIndex=0; pIndex<2*d+1;pIndex++)
+		if(this->currPage->p[pIndex] == underFlowPageOffset)
+			break;
+	int leftSiblingOffset = pIndex > 0 ? this->currPage->p[pIndex-1] : NIL;
+	int rightSiblingOffset = pIndex < 2*d ? this->currPage->p[pIndex+1] : NIL;
+
+	if(leftSiblingOffset != NIL){
+		distributeMerge(leftSiblingOffset, underFlowPageOffset, parentOffset, pIndex-1);
+		return leftSiblingOffset;
+	}
+	else{
+		distributeMerge(underFlowPageOffset, rightSiblingOffset, parentOffset, pIndex);
+		return underFlowPageOffset;
+	}
+	//return parentOffset;
+}
+
+void BTree::distributeMerge(int lP, int rP, int pP, int pIndex){
+	loadPage(rP);
+	int mR = currPage->getM();
+	loadPage(lP);
+	int mL = currPage->getM();
+
+	int* x = new int[2*d];
+	int* a = new int[2*d];
+	int* p = new int[2*d+1];
+
+	// Fill with left Page
+	for(int i=0; i<mL; i++){
+		x[i] = currPage->x[i];
+		a[i] = currPage->a[i];
+		p[i] = currPage->p[i];
+		currPage->x[i] = NO_KEY;
+		currPage->a[i] = NIL;
+		currPage->p[i] = NIL;
+	}
+	p[mL] = currPage->p[mL];
+	currPage->p[mL] = NIL;
+
+	// Insert parent element
+	loadPage(pP);
+	x[mL] = currPage->x[pIndex];
+	a[mL] = currPage->a[pIndex];
+
+	// Fill with right page
+	loadPage(rP);
+	for(int i=0; i<mR; i++){
+		x[i + mL + 1] = currPage->x[i];
+		a[i + mL + 1] = currPage->a[i];
+		p[i + mL + 1] = currPage->p[i];
+		currPage->x[i] = NO_KEY;
+		currPage->a[i] = NIL;
+		currPage->p[i] = NIL;
+	}
+	p[mL + mR + 1] = currPage->p[mR];
+	currPage->p[mR] = NIL;
+
+	// Copy everything to left page
+	loadPage(lP);
+	std::copy(x, x+2*d, currPage->x);
+	std::copy(a, a+2*d, currPage->a);
+	std::copy(p, p+2*d+1, currPage->p);
+
+	// Delete the element from parent page
+	loadPage(pP);
+	int mP = currPage->getM();
+	for(int i = pIndex; i<mP-1; i++){
+		currPage->x[i] = currPage->x[i+1];
+		currPage->a[i] = currPage->a[i+1];
+		currPage->p[i+1] = currPage->p[i+2];
+	}
+	currPage->x[mP-1] = NO_KEY;
+	currPage->a[mP-1] = NIL;
+	currPage->p[mP] = NIL;
+
+	delete[] x;
+	delete[] a;
+	delete[] p;
 }
 
 int BTree::tryCompensationRemoval(int ufP){
