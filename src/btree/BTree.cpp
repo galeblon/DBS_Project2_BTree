@@ -233,7 +233,7 @@ void BTree::PrintIndex(){
 			std::cout << "  NIL ┃\n";
 		else{
 			pages.push(p[2*d]);
-			std::cout << std::setw(6) << p[2*d];
+			std::cout << std::setw(6) << p[2*d] << "┃\n";
 		}
 
 		}
@@ -835,8 +835,9 @@ void BTree::distributeSplit(int ovP, int sbP, Record& rec, int& recordOffset, in
 	a[rIndex] = recordOffset;
 	p[rIndex] = currPage->p[rIndex];
 	p[rIndex+1] = nPOffset;
-	rIndex++;
 	currPage->p[rIndex] = NIL;
+	rIndex++;
+	// TODO check if this is correct
 
 	// Insert the rest from the overflow page
 	for(;rIndex-1<2*d; rIndex++){
@@ -861,7 +862,7 @@ void BTree::distributeSplit(int ovP, int sbP, Record& rec, int& recordOffset, in
 		currPage->a[i] = a[i];
 		currPage->p[i] = p[i];
 	}
-	currPage->p[i+1] = p[i+1];
+	currPage->p[i] = p[i];
 	// Fill new page
 	loadPage(sbP);
 	for(int j=middle+1, i=0; j<toDistribute; j++, i++){
@@ -869,7 +870,7 @@ void BTree::distributeSplit(int ovP, int sbP, Record& rec, int& recordOffset, in
 		currPage->a[i] = a[j];
 		currPage->p[i] = p[j];
 	}
-	currPage->p[i+1] = p[toDistribute];
+	currPage->p[i] = p[toDistribute];
 
 	delete[] x;
 	delete[] a;
