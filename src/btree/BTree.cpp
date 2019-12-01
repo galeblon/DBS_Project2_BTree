@@ -1109,14 +1109,15 @@ void BTree::SequentialRead(){
 void BTree::sequentialRead(int offset){
 	if(offset == NIL)
 		return;
-	Page* page = loadPage(offset);
-	int m = page->getM();
+	loadPage(offset);
+	int m = currPage->getM();
 	for(int i=0; i<m; i++){
-		sequentialRead(page->p[i]);
-		Record rec = loadRecord(page->a[i]);
-		rec.print(page->a[i]);
+		sequentialRead(currPage->p[i]);
+		loadPage(offset);
+		Record rec = loadRecord(currPage->a[i]);
+		rec.print(currPage->a[i]);
 	}
 	if(m)
-		sequentialRead(page->p[m]);
+		sequentialRead(currPage->p[m]);
 	//delete page;
 }
