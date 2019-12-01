@@ -13,9 +13,11 @@
 #include<fstream>
 #include<stack>
 #include"../page/Page.h"
+#include"../cache/Cache.h"
 
 typedef int PAGE_OFFSET;
 
+class Cache;
 
 class BTree {
 public:
@@ -50,6 +52,7 @@ private:
 	int d;
 	int h;
 	PAGE_OFFSET rootPageOffset;
+	Cache* pageCache;
 
 	void saveMetaData();
 	void loadMetaData();
@@ -57,19 +60,26 @@ private:
 
 	Page* loadPage(int offset);
 	int savePage(Page* page);
-	void updatePage(int offset, Page* page);
+	void updatePage(int offset, Page* page, bool skipCache=false);
 
 	Record loadRecord(int offset);
 	int saveRecord(Record record);
 	void updateRecord(int offset, Record record);
 
-	int readRecord(int x);
+	int readRecord(int x, int startPage=NIL);
 
 	int tryCompensation(Record rec, int recordOffset, int nPOffset);
-	void distributeCompensation(Page* ovP, Page* sbP, Page* pP, Record rec, int recordOffset, int nPOffset, int parentIndex, bool left);
+	void distributeCompensation(int ovP, int sbP, int pP, Record rec, int recordOffset, int nPOffset, int parentIndex, bool left);
 
 	int split(Record& rec, int& recordOffset, int nPOffset);
-	void distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset, int nPOffset);
+	void distributeSplit(int ovP, int sbP, Record& rec, int& recordOffset, int nPOffset);
+
+	void removeKeyFromLeafPage(Page* page, int index);
+	//TODO tryCompensationRemoval
+	//TODO distributeCompensationRemoval
+
+	//TODO merge
+	//TODO distributeMerge
 
 	void sequentialRead(int pageOffset);
 
@@ -83,6 +93,7 @@ private:
 	int diskReadIndexMemory;
 	int diskWriteMainMemory;
 	int diskWriteIndexMemory;
+friend class Cache;
 };
 
 #endif /* BTREE_BTREE_H_ */

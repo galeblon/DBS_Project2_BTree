@@ -16,6 +16,7 @@
 #define ALREADY_EXISTS -3
 #define OK 42
 #define COMPENSATION_NOT_POSSIBLE -4
+#define MINUS_INF -99
 
 class Record {
 public:

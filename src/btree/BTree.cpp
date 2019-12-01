@@ -14,6 +14,11 @@ BTree::BTree(){
 	this->rootPageOffset = 0;
 	this->currPage = NULL;
 	this->currPageOffset = NIL;
+	this->pageCache = new Cache(DEFAULT_CACHE_SIZE, this);
+	diskReadIndexMemory = 0;
+	diskReadMainMemory = 0;
+	diskWriteIndexMemory = 0;
+	diskWriteMainMemory = 0;
 }
 
 BTree::~BTree(){
@@ -160,11 +165,19 @@ void BTree::PrintIndex(){
 	while(!pages.empty()){
 		int page = pages.top();
 		pages.pop();
-		this->indexFile.seekg(page);
-		this->indexFile.read(reinterpret_cast<char *>(&parent), sizeof(int));
-		this->indexFile.read(reinterpret_cast<char *>(x), (2*this->d)*sizeof(int));
-		this->indexFile.read(reinterpret_cast<char *>(a), (2*this->d)*sizeof(int));
-		this->indexFile.read(reinterpret_cast<char *>(p), (2*this->d+1)*sizeof(int));
+		Page* cachedPage = pageCache->FindPage(page);
+		if(cachedPage != NULL){
+			std::copy(cachedPage->x, cachedPage->x+2*d, x);
+			std::copy(cachedPage->a, cachedPage->a+2*d, a);
+			std::copy(cachedPage->p, cachedPage->p+2*d+1, p);
+			parent = cachedPage->parent;
+		} else {
+			this->indexFile.seekg(page);
+			this->indexFile.read(reinterpret_cast<char *>(&parent), sizeof(int));
+			this->indexFile.read(reinterpret_cast<char *>(x), (2*this->d)*sizeof(int));
+			this->indexFile.read(reinterpret_cast<char *>(a), (2*this->d)*sizeof(int));
+			this->indexFile.read(reinterpret_cast<char *>(p), (2*this->d+1)*sizeof(int));
+		}
 
 		std::cout << "┏━━━━━━┯━━━━━━┯━━━━━━┯━━━━━━┓\n"
 				  << "┃ PAGE │" << std::setw(6) << page <<"│PARENT│";
@@ -237,12 +250,18 @@ void BTree::PrintIndex(){
 }
 
 Page* BTree::loadPage(int offset){
-	// TODO ask cache first
+	// Ask cache first
+	Page* lPage = this->pageCache->FindPage(offset);
+	if(lPage != NULL){
+		this->currPage = lPage;
+		this->currPageOffset = offset;
+		return lPage;
+	}
 
 	// Load from index memory
 	diskReadIndexMemory++;
 
-	Page* lPage = new Page(this->d);
+	lPage = new Page(this->d);
 	int* buffer = new int[6*this->d+2];
 	this->indexFile.seekg(offset);
 
@@ -259,6 +278,7 @@ Page* BTree::loadPage(int offset){
 	this->currPageOffset = offset;
 	this->currPage = lPage;
 
+	this->pageCache->CachePage(lPage, offset);
 	delete[] buffer;
 	return lPage;
 }
@@ -280,11 +300,17 @@ int BTree::savePage(Page* page){
 	this->indexFile.write(reinterpret_cast<const char *>(buffer), (6*d+2)*sizeof(int));
 	this->indexFile.flush();
 
+	this->pageCache->CachePage(page, offset);
+
 	delete[] buffer;
 	return offset;
 }
 
-void BTree::updatePage(int offset, Page* page){
+void BTree::updatePage(int offset, Page* page, bool skipCache){
+	if(!skipCache && pageCache->IsCached(page)){
+		return;
+	}
+
 	diskWriteIndexMemory++;
 
 	int* buffer = new int[6*this->d+2];
@@ -357,16 +383,21 @@ void BTree::updateRecord(int offset, Record record){
 }
 
 
-int BTree::readRecord(int x){
-	int s = this->rootPageOffset;
+int BTree::readRecord(int x, int startPage){
+	int s;
+	if(startPage == NIL)
+		s = this->rootPageOffset;
+	else
+		s = startPage;
 	//Page* page;
 
 	while(true){
 		if(s == NIL)
 			return NOT_FOUND;
 		//page = loadPage(s)
-		delete this->currPage;
-		this->currPage = loadPage(s);
+		//delete this->currPage;
+		//this->currPage =
+		loadPage(s);
 
 		int m = currPage->getM();
 		if(!m)
@@ -430,20 +461,56 @@ int BTree::RemoveRecord(int x){
 	int offset = readRecord(x);
 	if(offset == NOT_FOUND)
 		return NOT_FOUND;
-
-	// TODO Removal procedure
-	// 1. If we are in leaf just delete
-	// 2. otherwise find min from child on right, replace  curr with min
-	// and delete min from the child page
-	// 3. Check if m<d
-	// 4a. If yes tryCompensation
-	// 4b  If not just end
-	// 5. If compensation not succesfull do a merge
-	// Merge in loop because we may need to collapse
 	int m = this->currPage->getM();
-
+	int toRemoveIndex;
+	for(toRemoveIndex=0; toRemoveIndex<m; toRemoveIndex++)
+		if(this->currPage->x[toRemoveIndex] == x)
+			break;
+	if(this->currPage->p[0] == NIL){
+		// This is leaf page, safe to remove
+		removeKeyFromLeafPage(this->currPage, toRemoveIndex);
+		updatePage(this->currPageOffset, this->currPage);
+	} else {
+		// Not leaf, get smallest key from right subtree
+		//Page* originPage = this->currPage;
+		int originPageOffset = this->currPageOffset;
+		int rSubTreeIndex = toRemoveIndex+1;
+		readRecord(MINUS_INF, this->currPage->p[rSubTreeIndex]);
+		int x = this->currPage->x[0];
+		int a = this->currPage->a[0];
+		removeKeyFromLeafPage(this->currPage, toRemoveIndex);
+		updatePage(this->currPageOffset, this->currPage);
+		int lowestSubTreePageOffset = this->currPageOffset;
+		//originPage =
+		loadPage(originPageOffset);
+		this->currPage->x[toRemoveIndex] = x;
+		this->currPage->a[toRemoveIndex] = a;
+		updatePage(originPageOffset, this->currPage);
+		loadPage(lowestSubTreePageOffset);
+	}
+	while(true){
+		int m = this->currPage->getM();
+		if(m >= d)
+			return OK;
+		else{
+			// Try Compensation
+			// If couldn't compensate
+			// 			Merge
+			return OK;
+		}
+	}
 
 	return OK;
+}
+
+void BTree::removeKeyFromLeafPage(Page* page, int index){
+	int m = page->getM();
+	for(int i=index+1; i<m; i++){
+		// Pointer are nill anyway
+		page->x[i-1] = page->x[i];
+		page->a[i-1] = page->a[i];
+	}
+	page->x[m-1] = NO_KEY;
 }
 
 int BTree::InsertRecord(Record rec){
@@ -491,7 +558,6 @@ int BTree::InsertRecord(Record rec){
 		if(res == COMPENSATION_NOT_POSSIBLE){
 			cpointer = split(rec, offset, cpointer);
 			int parent = this->currPage->parent;
-			delete this->currPage;
 			loadPage(parent);
 		} else{
 			return res;
@@ -504,14 +570,14 @@ int BTree::InsertRecord(Record rec){
 int BTree::tryCompensation(Record rec, int recordOffset, int nPOffset){
 	int result = COMPENSATION_NOT_POSSIBLE;
 	bool done = false;
-	Page *overflowPage = this->currPage;
-	Page *parent, *leftSibling, *rightSibling;
-	parent = leftSibling = rightSibling = NULL;
+	//Page *overflowPage = this->currPage;
+	//Page *parent, *leftSibling, *rightSibling;
+	//parent = leftSibling = rightSibling = NULL;
 	int overflowPageOffset = this->currPageOffset;
-	if(overflowPage->parent == NIL)
+	if(currPage->parent == NIL)
 		return COMPENSATION_NOT_POSSIBLE;
-	loadPage(overflowPage->parent);
-	parent = this->currPage;
+	loadPage(currPage->parent);
+	//parent = this->currPage;
 	int parentOffset = this->currPageOffset;
 	int pIndex=0;
 	// It's his parent he has to be here somewhere
@@ -524,55 +590,59 @@ int BTree::tryCompensation(Record rec, int recordOffset, int nPOffset){
 
 	// Check with left sibling first
 	if(leftSiblingOffset != NIL){
-		Page* leftSibling = loadPage(leftSiblingOffset);
-		int m = leftSibling->getM();
+		//Page* leftSibling =
+		loadPage(leftSiblingOffset);
+		int m = this->currPage->getM(); //leftSibling->getM();
 		if(m<2*d){
 			// Possible compensation
-			distributeCompensation(overflowPage, leftSibling, parent, rec, recordOffset, nPOffset, pIndex, true);
+			distributeCompensation(overflowPageOffset, leftSiblingOffset, parentOffset, rec, recordOffset, nPOffset, pIndex, true);
 			done = true;
 			result = OK;
-			updatePage(leftSiblingOffset, leftSibling);
+			//updatePage(leftSiblingOffset, leftSibling);
 		}
 
 	}
 	// Then right sibling
 	if(rightSiblingOffset != NIL && !done){
-		Page* rightSibling = loadPage(rightSiblingOffset);
-		int m = rightSibling->getM();
+		//Page* rightSibling =
+		loadPage(rightSiblingOffset);
+		int m = this->currPage->getM();
 		if(m<2*d){
 			// Possible compensation
-			distributeCompensation(overflowPage, rightSibling, parent, rec, recordOffset, nPOffset, pIndex, false);
+			distributeCompensation(overflowPageOffset, rightSiblingOffset, parentOffset, rec, recordOffset, nPOffset, pIndex, false);
 			result = OK;
 			done = true;
-			updatePage(rightSiblingOffset, rightSibling);
+			//updatePage(rightSiblingOffset, rightSibling);
 		}
 	}
 	if(done){
-		updatePage(overflowPageOffset, overflowPage);
-		updatePage(parentOffset, parent);
+		//updatePage(overflowPageOffset, overflowPage);
+		//updatePage(parentOffset, parent);
 	}
-	this->currPage = overflowPage;
-	this->currPageOffset = overflowPageOffset;
-	if(leftSibling != NULL)
-		delete leftSibling;
-	if(rightSibling != NULL)
-		delete rightSibling;
-	if(parent != NULL)
-		delete parent;
+	loadPage(overflowPageOffset);
+	//this->currPage = overflowPage;
+	//this->currPageOffset = overflowPageOffset;
+	//if(leftSibling != NULL)
+	//	delete leftSibling;
+	//if(rightSibling != NULL)
+	//	delete rightSibling;
+	//if(parent != NULL)
+	//	delete parent;
 	return result;
 }
 
 int BTree::split(Record& rec, int& recordOffset, int nPOffset){
-	Page* overflowPage = this->currPage;
+	//Page* overflowPage = this->currPage;
 	int overFlowPageOffset = this->currPageOffset;
 	Page* newPage = new Page(this->d);
-	newPage->parent = overflowPage->parent;
+	newPage->parent = currPage->parent;
 	int newPageOffset = savePage(newPage);
 
-	distributeSplit(overflowPage, newPage, rec, recordOffset, nPOffset);
+	distributeSplit(overFlowPageOffset, newPageOffset, rec, recordOffset, nPOffset);
 
 	if(newPage->parent == NIL){
 		this->h++;
+		this->pageCache->ExpandCache(1);
 		Page* newRoot = new Page(d);
 		newRoot->x[0] = rec.getKey();
 		newRoot->a[0] = recordOffset;
@@ -580,20 +650,22 @@ int BTree::split(Record& rec, int& recordOffset, int nPOffset){
 		newRoot->p[1] = newPageOffset;
 		int newRootOffset = savePage(newRoot);
 		newPage->parent = newRootOffset;
-		overflowPage->parent = newRootOffset;
+		loadPage(overFlowPageOffset);
+		currPage->parent = newRootOffset;
 		this->rootPageOffset = newRootOffset;
 
 	}
-	updatePage(overFlowPageOffset, overflowPage);
-	updatePage(newPageOffset, newPage);
+	//updatePage(overFlowPageOffset, overflowPage);
+	//updatePage(newPageOffset, newPage);
 
-	delete newPage;
+	//delete newPage;
 	return newPageOffset;
 }
 
-void BTree::distributeCompensation(Page* ovP, Page* sbP, Page* pP, Record rec, int recordOffset, int nPOffset, int parentIndex, bool left){
+void BTree::distributeCompensation(int ovP, int sbP, int pP, Record rec, int recordOffset, int nPOffset, int parentIndex, bool left){
 	// Oveflow has 2*d, sibling has m, one from parent and we also insert 1 record
-	int toDistribute = 2*d + sbP->getM() + 1 + 1;
+	loadPage(sbP);
+	int toDistribute = 2*d + this->currPage->getM() + 1 + 1;
 	int* x = new int[toDistribute];
 	int* a = new int[toDistribute];
 	int* p = new int[toDistribute+1];
@@ -601,124 +673,133 @@ void BTree::distributeCompensation(Page* ovP, Page* sbP, Page* pP, Record rec, i
 	int rIndex = 0;
 	if(left){
 		// Fill the start with sibling
-		int sbM = sbP->getM();
+		int sbM = currPage->getM();
 		for(int i=0; i<sbM; i++, rIndex++){
-			x[rIndex] = sbP->x[rIndex];
-			a[rIndex] = sbP->a[rIndex];
-			p[rIndex] = sbP->p[rIndex];
-			sbP->x[rIndex] = NO_KEY;
-			sbP->a[rIndex] = NIL;
-			sbP->p[rIndex] = NIL;
+			x[rIndex] = currPage->x[rIndex];
+			a[rIndex] = currPage->a[rIndex];
+			p[rIndex] = currPage->p[rIndex];
+			currPage->x[rIndex] = NO_KEY;
+			currPage->a[rIndex] = NIL;
+			currPage->p[rIndex] = NIL;
 		}
-		p[rIndex] = sbP->p[sbM];
-		sbP->p[sbM] = NIL;
+		p[rIndex] = currPage->p[sbM];
+		currPage->p[sbM] = NIL;
 
+		loadPage(pP);
 		// Insert the parent
-		x[rIndex] = pP->x[parentIndex-1];
-		a[rIndex] = pP->a[parentIndex-1];
+		x[rIndex] = currPage->x[parentIndex-1];
+		a[rIndex] = currPage->a[parentIndex-1];
 		rIndex++;
 	}
 
 	int newRecIndex = 0;
+	loadPage(ovP);
 	// find index where new recod should be inserted
 	for(; newRecIndex<2*d; newRecIndex++)
-		if(ovP->x[newRecIndex] > rec.getKey())
+		if(currPage->x[newRecIndex] > rec.getKey())
 			break;
 
 	// We can rewrite all up to conflicting record
 	for(int i=0; i<newRecIndex; i++){
-		x[rIndex + i] = ovP->x[i];
-		a[rIndex + i] = ovP->a[i];
-		p[rIndex + i] = ovP->p[i];
-		ovP->x[i] = NO_KEY;
-		ovP->a[i] = NIL;
-		ovP->p[i] = NIL;
+		x[rIndex + i] = currPage->x[i];
+		a[rIndex + i] = currPage->a[i];
+		p[rIndex + i] = currPage->p[i];
+		currPage->x[i] = NO_KEY;
+		currPage->a[i] = NIL;
+		currPage->p[i] = NIL;
 	}
 	// Insert the new record
 	if(left){
 		x[rIndex + newRecIndex] = rec.getKey();
 		a[rIndex + newRecIndex] = recordOffset;
-		p[rIndex + newRecIndex] = ovP->p[newRecIndex];
+		p[rIndex + newRecIndex] = currPage->p[newRecIndex];
 		p[rIndex + newRecIndex + 1] = nPOffset;
 		rIndex++;
-		ovP->p[rIndex] = NIL;
+		currPage->p[rIndex] = NIL;
 	} else {
 		x[rIndex + newRecIndex] = rec.getKey();
 		a[rIndex + newRecIndex] = recordOffset;
-		p[rIndex + newRecIndex] = ovP->p[rIndex + newRecIndex];
+		p[rIndex + newRecIndex] = currPage->p[rIndex + newRecIndex];
 		p[rIndex + newRecIndex + 1] = nPOffset;
 		rIndex++;
-		ovP->p[rIndex + newRecIndex] = NIL;
+		currPage->p[rIndex + newRecIndex] = NIL;
 	}
 
 	// Insert the rest from the overflow page
 	for(;newRecIndex<2*d; newRecIndex++){
-		x[rIndex+newRecIndex] = ovP->x[newRecIndex];
-		a[rIndex+newRecIndex] = ovP->a[newRecIndex];
-		p[rIndex+newRecIndex+1] = ovP->p[newRecIndex+1];
-		ovP->x[newRecIndex] = NO_KEY;
-		ovP->a[newRecIndex] = NIL;
-		ovP->p[newRecIndex+1] = NIL;
+		x[rIndex+newRecIndex] = currPage->x[newRecIndex];
+		a[rIndex+newRecIndex] = currPage->a[newRecIndex];
+		p[rIndex+newRecIndex+1] = currPage->p[newRecIndex+1];
+		currPage->x[newRecIndex] = NO_KEY;
+		currPage->a[newRecIndex] = NIL;
+		currPage->p[newRecIndex+1] = NIL;
 	}
 
 	if(!left){
+		loadPage(pP);
 		// insert the parent
-		x[newRecIndex+rIndex] = pP->x[parentIndex];
-		a[newRecIndex+rIndex] = pP->a[parentIndex];
+		x[newRecIndex+rIndex] = currPage->x[parentIndex];
+		a[newRecIndex+rIndex] = currPage->a[parentIndex];
 		rIndex++;
 		// Fill the rest with sibling
-		int sbM = sbP->getM();
+		loadPage(sbP);
+		int sbM = currPage->getM();
 		for(int i=0; i<sbM; i++, rIndex++){
-			x[newRecIndex + rIndex] = sbP->x[i];
-			a[newRecIndex + rIndex] = sbP->a[i];
-			p[newRecIndex + rIndex] = sbP->p[i];
-			sbP->x[i] = NO_KEY;
-			sbP->a[i] = NIL;
-			sbP->p[i] = NIL;
+			x[newRecIndex + rIndex] = currPage->x[i];
+			a[newRecIndex + rIndex] = currPage->a[i];
+			p[newRecIndex + rIndex] = currPage->p[i];
+			currPage->x[i] = NO_KEY;
+			currPage->a[i] = NIL;
+			currPage->p[i] = NIL;
 		}
-		p[newRecIndex + rIndex] = sbP->p[sbM];
-		sbP->p[sbM] = NIL;
+		p[newRecIndex + rIndex] = currPage->p[sbM];
+		currPage->p[sbM] = NIL;
 	}
 
 	// Get the middle element
 	int middle = toDistribute/2;
 	//Write him to parent
+	loadPage(pP);
 	if(left){
-		pP->x[parentIndex-1] = x[middle];
-		pP->a[parentIndex-1] = a[middle];
+		currPage->x[parentIndex-1] = x[middle];
+		currPage->a[parentIndex-1] = a[middle];
 	} else{
-		pP->x[parentIndex] = x[middle];
-		pP->a[parentIndex] = a[middle];
+		currPage->x[parentIndex] = x[middle];
+		currPage->a[parentIndex] = a[middle];
 	}
 	// Fill back overflow
 	if(!left){
+		loadPage(ovP);
 		int i;
 		for(i=0; i<middle; i++){
-			ovP->x[i] = x[i];
-			ovP->a[i] = a[i];
-			ovP->p[i] = p[i];
+			currPage->x[i] = x[i];
+			currPage->a[i] = a[i];
+			currPage->p[i] = p[i];
 		}
-		ovP->p[i+1] = p[i+1];
+		currPage->p[i+1] = p[i+1];
+		loadPage(sbP);
 		for(int j=middle+1, i=0; j<toDistribute; j++, i++){
-			sbP->x[i] = x[j];
-			sbP->a[i] = a[j];
-			sbP->p[i] = p[j];
+			currPage->x[i] = x[j];
+			currPage->a[i] = a[j];
+			currPage->p[i] = p[j];
 		}
-		sbP->p[i+1] = p[toDistribute];
+		currPage->p[i+1] = p[toDistribute];
 	} else {
+		loadPage(sbP);
 		int i;
 		for(i=0; i<middle; i++){
-			sbP->x[i] = x[i];
-			sbP->a[i] = a[i];
-			sbP->p[i] = p[i];
+			currPage->x[i] = x[i];
+			currPage->a[i] = a[i];
+			currPage->p[i] = p[i];
 		}
-		sbP->p[i+1] = p[i+1];
+		currPage->p[i+1] = p[i+1];
+		loadPage(ovP);
 		for(int j=middle+1, i=0; j<toDistribute; j++, i++){
-			ovP->x[i] = x[j];
-			ovP->a[i] = a[j];
-			ovP->p[i] = p[j];
+			currPage->x[i] = x[j];
+			currPage->a[i] = a[j];
+			currPage->p[i] = p[j];
 		}
-		ovP->p[i+1] = p[toDistribute];
+		currPage->p[i+1] = p[toDistribute];
 	}
 
 	delete[] x;
@@ -726,7 +807,7 @@ void BTree::distributeCompensation(Page* ovP, Page* sbP, Page* pP, Record rec, i
 	delete[] p;
 }
 
-void BTree::distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset, int nPOffset){
+void BTree::distributeSplit(int ovP, int sbP, Record& rec, int& recordOffset, int nPOffset){
 	// Oveflow has 2*d, sibling has 0, and we also insert 1 record
 	int toDistribute = 2*d + 1;
 	int* x = new int[toDistribute];
@@ -734,36 +815,37 @@ void BTree::distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset
 	int* p = new int[toDistribute+1];
 
 	// find index where new recod should be inserted
+	loadPage(ovP);
 	int rIndex = 0;
 	for(; rIndex<2*d; rIndex++)
-		if(ovP->x[rIndex] > rec.getKey())
+		if(currPage->x[rIndex] > rec.getKey())
 			break;
 
 	// We can rewrite all up to conflicting record
 	for(int i=0; i<rIndex; i++){
-		x[i] = ovP->x[i];
-		a[i] = ovP->a[i];
-		p[i] = ovP->p[i];
-		ovP->x[i] = NO_KEY;
-		ovP->a[i] = NIL;
-		ovP->p[i] = NIL;
+		x[i] = currPage->x[i];
+		a[i] = currPage->a[i];
+		p[i] = currPage->p[i];
+		currPage->x[i] = NO_KEY;
+		currPage->a[i] = NIL;
+		currPage->p[i] = NIL;
 	}
 	// Insert the new record
 	x[rIndex] = rec.getKey();
 	a[rIndex] = recordOffset;
-	p[rIndex] = ovP->p[rIndex];
+	p[rIndex] = currPage->p[rIndex];
 	p[rIndex+1] = nPOffset;
 	rIndex++;
-	ovP->p[rIndex] = NIL;
+	currPage->p[rIndex] = NIL;
 
 	// Insert the rest from the overflow page
 	for(;rIndex-1<2*d; rIndex++){
-		x[rIndex] = ovP->x[rIndex-1];
-		a[rIndex] = ovP->a[rIndex-1];
-		p[rIndex+1] = ovP->p[rIndex-1+1];
-		ovP->x[rIndex-1] = NO_KEY;
-		ovP->a[rIndex-1] = NIL;
-		ovP->p[rIndex-1+1] = NIL;
+		x[rIndex] = currPage->x[rIndex-1];
+		a[rIndex] = currPage->a[rIndex-1];
+		p[rIndex+1] = currPage->p[rIndex-1+1];
+		currPage->x[rIndex-1] = NO_KEY;
+		currPage->a[rIndex-1] = NIL;
+		currPage->p[rIndex-1+1] = NIL;
 	}
 
 	// Get the middle element
@@ -775,18 +857,19 @@ void BTree::distributeSplit(Page* ovP, Page* sbP, Record& rec, int& recordOffset
 	// Fill back overflow
 	int i;
 	for(i=0; i<middle; i++){
-		ovP->x[i] = x[i];
-		ovP->a[i] = a[i];
-		ovP->p[i] = p[i];
+		currPage->x[i] = x[i];
+		currPage->a[i] = a[i];
+		currPage->p[i] = p[i];
 	}
-	ovP->p[i+1] = p[i+1];
+	currPage->p[i+1] = p[i+1];
 	// Fill new page
+	loadPage(sbP);
 	for(int j=middle+1, i=0; j<toDistribute; j++, i++){
-		sbP->x[i] = x[j];
-		sbP->a[i] = a[j];
-		sbP->p[i] = p[j];
+		currPage->x[i] = x[j];
+		currPage->a[i] = a[j];
+		currPage->p[i] = p[j];
 	}
-	sbP->p[i+1] = p[toDistribute];
+	currPage->p[i+1] = p[toDistribute];
 
 	delete[] x;
 	delete[] a;
@@ -824,5 +907,5 @@ void BTree::sequentialRead(int offset){
 	}
 	if(m)
 		sequentialRead(page->p[m]);
-	delete page;
+	//delete page;
 }
