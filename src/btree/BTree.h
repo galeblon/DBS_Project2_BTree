@@ -75,7 +75,8 @@ private:
 	void distributeSplit(int ovP, int sbP, Record& rec, int& recordOffset, int nPOffset);
 
 	void removeKeyFromLeafPage(Page* page, int index);
-	//TODO tryCompensationRemoval
+	int tryCompensationRemoval(int ufP);
+	void distributeCompensationRemoval(int lP, int rP, int pP, int pIndex);
 	//TODO distributeCompensationRemoval
 
 	//TODO merge
