@@ -416,7 +416,8 @@ int BTree::readRecord(int x, int startPage){
 			}
 			if(i > 0 && x > currPage->x[i-1] && x < currPage->x[i]){
 				s = currPage->p[i];
-				continue;
+				break;
+				// continue ?? TODO important
 			}
 		}
 		if(x > currPage->x[m-1]){
@@ -462,6 +463,8 @@ int BTree::RemoveRecord(int x){
 	if(offset == NOT_FOUND)
 		return NOT_FOUND;
 	int m = this->currPage->getM();
+	Record rec;
+	updateRecord(offset, rec);
 	int toRemoveIndex;
 	for(toRemoveIndex=0; toRemoveIndex<m; toRemoveIndex++)
 		if(this->currPage->x[toRemoveIndex] == x)
@@ -696,8 +699,18 @@ void BTree::distributeCompensationRemoval(int lP, int rP, int pP, int pIndex){
 		currPage->x[i] = x[i];
 		currPage->a[i] = a[i];
 		currPage->p[i] = p[i];
+		if(currPage->p[i] != NIL){
+			loadPage(currPage->p[i]);
+			currPage->parent = lP;
+			loadPage(lP);
+		}
 	}
 	currPage->p[middle] = p[middle];
+	if(currPage->p[middle] != NIL){
+		loadPage(currPage->p[middle]);
+		currPage->parent = lP;
+		loadPage(lP);
+	}
 	// Fill back right page:
 	loadPage(rP);
 	int j, i;
@@ -705,9 +718,18 @@ void BTree::distributeCompensationRemoval(int lP, int rP, int pP, int pIndex){
 		currPage->x[j] = x[i];
 		currPage->a[j] = a[i];
 		currPage->p[j] = p[i];
+		if(currPage->p[i] != NIL){
+			loadPage(currPage->p[i]);
+			currPage->parent = rP;
+			loadPage(rP);
+		}
 	}
 	currPage->p[j] = p[toDistribute];
-
+	if(currPage->p[j] != NIL){
+		loadPage(currPage->p[j]);
+		currPage->parent = rP;
+		loadPage(rP);
+	}
 	delete[] x;
 	delete[] a;
 	delete[] p;
@@ -735,6 +757,13 @@ int BTree::InsertRecord(Record rec){
 	while(true){
 		int m = this->currPage->getM();
 		if(m < 2*d){
+			// Update the parent
+			if(cpointer != NIL){
+				int tmp_parentOffset = this->currPageOffset;
+				loadPage(cpointer);
+				this->currPage->parent = tmp_parentOffset;
+				loadPage(tmp_parentOffset);
+			}
 			int key_temp;
 			int offset_temp;
 			int cpointer_temp;
@@ -761,7 +790,7 @@ int BTree::InsertRecord(Record rec){
 				}
 			}
 			// TODO when caching works, this wont be necessary
-			updatePage(currPageOffset, currPage);
+			//updatePage(currPageOffset, currPage);
 			return OK;
 		}
 		int res = tryCompensation(rec, offset, cpointer);
@@ -922,6 +951,7 @@ void BTree::distributeCompensation(int ovP, int sbP, int pP, Record rec, int rec
 	if(left){
 		x[rIndex + newRecIndex] = rec.getKey();
 		a[rIndex + newRecIndex] = recordOffset;
+		// TODO error is here
 		p[rIndex + newRecIndex] = currPage->p[newRecIndex];
 		p[rIndex + newRecIndex + 1] = nPOffset;
 		rIndex++;
@@ -979,37 +1009,75 @@ void BTree::distributeCompensation(int ovP, int sbP, int pP, Record rec, int rec
 	}
 	// Fill back overflow
 	if(!left){
-		loadPage(ovP);
 		int i;
+		loadPage(ovP);
 		for(i=0; i<middle; i++){
 			currPage->x[i] = x[i];
 			currPage->a[i] = a[i];
 			currPage->p[i] = p[i];
+			if(currPage->p[i] != NIL){
+				loadPage(currPage->p[i]);
+				currPage->parent = ovP;
+				loadPage(ovP);
+			}
 		}
 		currPage->p[i] = p[i];
+		if(currPage->p[i] != NIL){
+			loadPage(currPage->p[i]);
+			currPage->parent = ovP;
+		}
 		loadPage(sbP);
 		for(int j=middle+1, i=0; j<toDistribute; j++, i++){
 			currPage->x[i] = x[j];
 			currPage->a[i] = a[j];
 			currPage->p[i] = p[j];
+			if(currPage->p[i] != NIL){
+				loadPage(currPage->p[i]);
+				currPage->parent = sbP;
+				loadPage(sbP);
+			}
 		}
 		currPage->p[i] = p[toDistribute];
+		if(currPage->p[i] != NIL){
+			loadPage(currPage->p[i]);
+			currPage->parent = sbP;
+		}
 	} else {
-		loadPage(sbP);
 		int i;
+		loadPage(sbP);
 		for(i=0; i<middle; i++){
 			currPage->x[i] = x[i];
 			currPage->a[i] = a[i];
 			currPage->p[i] = p[i];
+			if(currPage->p[i] != NIL){
+				loadPage(currPage->p[i]);
+				currPage->parent = sbP;
+				loadPage(sbP);
+			}
 		}
+
 		currPage->p[i] = p[i];
+		if(currPage->p[i] != NIL){
+			loadPage(currPage->p[i]);
+			currPage->parent = sbP;
+			loadPage(sbP);
+		}
 		loadPage(ovP);
 		for(int j=middle+1, i=0; j<toDistribute; j++, i++){
 			currPage->x[i] = x[j];
 			currPage->a[i] = a[j];
 			currPage->p[i] = p[j];
+			if(currPage->p[i] != NIL){
+				loadPage(currPage->p[i]);
+				currPage->parent = ovP;
+				loadPage(ovP);
+			}
 		}
 		currPage->p[i] = p[toDistribute];
+		if(currPage->p[i] != NIL){
+			loadPage(currPage->p[i]);
+			currPage->parent = ovP;
+		}
 	}
 
 	delete[] x;
@@ -1079,8 +1147,18 @@ void BTree::distributeSplit(int ovP, int sbP, Record& rec, int& recordOffset, in
 		currPage->x[i] = x[j];
 		currPage->a[i] = a[j];
 		currPage->p[i] = p[j];
+		if(currPage->p[i] != NIL){
+			loadPage(currPage->p[i]);
+			currPage->parent = sbP;
+			loadPage(sbP);
+		}
 	}
 	currPage->p[i] = p[toDistribute];
+	if(currPage->p[i] != NIL){
+		loadPage(currPage->p[i]);
+		currPage->parent = sbP;
+		loadPage(sbP);
+	}
 
 	delete[] x;
 	delete[] a;
