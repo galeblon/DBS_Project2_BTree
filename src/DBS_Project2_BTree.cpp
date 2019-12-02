@@ -52,18 +52,18 @@ bool parseAction(char action, BTree& tree){
 	int valI1, valI2, valI3, valI4;
 	try{
 		switch(toupper(action)){
+			// Loading db operation
 			case 'L':
-				//std::cout << "Loading db operation here\n";
 				std::cin >> valStr;
 				tree.LoadBTree(valStr);
 				break;
+			// Creating db operation
 			case 'C':
-				//std::cout << "Creating db operation here\n";
 				std::cin >> valStr >> valI1;
 				tree.CreateBTree(valStr, valI1);
 				break;
+			// Record insert operation
 			case 'I':{
-				//std::cout << "Record insert operation here\n";
 				std::cin >> valI1 >> valI2 >> valI3 >> valI4;
 				Record rec(valI1, valI2, valI3, valI4);
 				int res = tree.InsertRecord(rec);
@@ -75,8 +75,8 @@ bool parseAction(char action, BTree& tree){
 				tree.PrintIOStatistics();
 			}
 				break;
+			// Record update operation
 			case 'U':{
-				//std::cout << "Record update operation here\n";
 				std::cin >> valI1 >> valI2 >> valI3 >> valI4;
 				Record rec(valI1, valI2, valI3, valI4);
 				int res = tree.UpdateRecord(rec);
@@ -88,8 +88,8 @@ bool parseAction(char action, BTree& tree){
 				tree.PrintIOStatistics();
 			}
 				break;
+			// Record remove operation
 			case 'D':{
-				//std::cout << "Record remove operation here\n";
 				std::cin >> valI1;
 				int res = tree.RemoveRecord(valI1);
 				if(res == NOT_FOUND){
@@ -100,23 +100,23 @@ bool parseAction(char action, BTree& tree){
 				tree.PrintIOStatistics();
 			}
 				break;
+			// Record read operation
 			case 'R':
-				//std::cout << "Record read operation here\n";
 				std::cin >> valI1;
 				tree.SearchForRecord(valI1);
 				tree.PrintIOStatistics();
 				break;
+			// All records read operation
 			case 'A':
-				//std::cout << "All records read operation here\n";
 				tree.SequentialRead();
 				tree.PrintIOStatistics();
 				break;
+			// Display index file content operation
 			case 'X':
-				//std::cout << "Display index file operation here\n";
 				tree.PrintIndex();
 				break;
+			// Display main memory file content operation
 			case 'M':
-				//std::cout << "Display main memory file operation here\n";
 				tree.PrintMainMem();
 				break;
 			case 'Q':
