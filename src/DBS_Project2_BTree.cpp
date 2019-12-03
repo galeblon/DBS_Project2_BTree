@@ -66,6 +66,8 @@ bool parseAction(char action, BTree& tree){
 			case 'I':{
 				std::cin >> valI1 >> valI2 >> valI3 >> valI4;
 				Record rec(valI1, valI2, valI3, valI4);
+				if(rec.getKey() <= 0)
+					throw new std::runtime_error("Provided invalid key.");
 				int res = tree.InsertRecord(rec);
 				if(res == ALREADY_EXISTS){
 					std::cout << "\tRecord already exists\n";
