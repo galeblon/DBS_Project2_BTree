@@ -59,6 +59,8 @@ void Cache::ShrinkCache(int howMuch){
 		PageListNode* current = cacheList;
 		while(current->nextElement->nextElement != NULL)
 			current = current->nextElement;
+		if(current->nextElement->page != NULL && current->nextElement->isDirty)
+			tree->updatePage(current->nextElement->pageOffset, current->nextElement->page, true);
 		delete current->nextElement;
 		current->nextElement = NULL;
 		length--;
@@ -80,9 +82,9 @@ Page* Cache::FindPage(int offset, bool willBeDirty){
 
 void Cache::CachePage(Page* page, int offset, bool willBeDirty){
 	PageListNode* current = cacheList;
+	cycle = (cycle+1)%length; // TODO
 	for(int i=0; i<cycle; i++)
 		current = current->nextElement;
-	cycle = (cycle+1)%length;
 	if(current->page != NULL && current->isDirty){
 		tree->updatePage(current->pageOffset, current->page, true);
 		delete current->page;

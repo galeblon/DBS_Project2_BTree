@@ -465,6 +465,7 @@ int BTree::RemoveRecord(int x){
 		// This is leaf page, safe to remove
 		removeKeyFromLeafPage(this->currPage, toRemoveIndex);
 	} else {
+		// TODO
 		// Not leaf, get smallest key from right subtree
 		int originPageOffset = this->currPageOffset;
 		int rSubTreeIndex = toRemoveIndex+1;
@@ -472,12 +473,12 @@ int BTree::RemoveRecord(int x){
 		int x = this->currPage->x[0];
 		int a = this->currPage->a[0];
 		removeKeyFromLeafPage(this->currPage, 0);
-		updatePage(this->currPageOffset, this->currPage);
+		//updatePage(this->currPageOffset, this->currPage);
 		int lowestSubTreePageOffset = this->currPageOffset;
 		loadPage(originPageOffset);
 		this->currPage->x[toRemoveIndex] = x;
 		this->currPage->a[toRemoveIndex] = a;
-		updatePage(originPageOffset, this->currPage);
+		//updatePage(originPageOffset, this->currPage);
 		loadPage(lowestSubTreePageOffset);
 	}
 	while(true){
@@ -524,9 +525,12 @@ int BTree::merge(int ufP){
 		distributeMerge(leftSiblingOffset, underFlowPageOffset, parentOffset, pIndex-1);
 		return leftSiblingOffset;
 	}
-	else{
+	else if(rightSiblingOffset != NIL){
 		distributeMerge(underFlowPageOffset, rightSiblingOffset, parentOffset, pIndex);
 		return underFlowPageOffset;
+	}
+	else{
+		throw new std::runtime_error("B-Tree structure got corrupted, will not work correctly.");
 	}
 }
 
@@ -563,11 +567,21 @@ void BTree::distributeMerge(int lP, int rP, int pP, int pIndex){
 		x[i + mL + 1] = currPage->x[i];
 		a[i + mL + 1] = currPage->a[i];
 		p[i + mL + 1] = currPage->p[i];
+		if(currPage->p[i] != NIL){
+			loadPage(currPage->p[i]);
+			currPage->parent = lP;
+			loadPage(rP);
+		}
 		currPage->x[i] = NO_KEY;
 		currPage->a[i] = NIL;
 		currPage->p[i] = NIL;
 	}
 	p[mL + mR + 1] = currPage->p[mR];
+	if(currPage->p[mR] != NIL){
+		loadPage(currPage->p[mR]);
+		currPage->parent = lP;
+		loadPage(rP);
+	}
 	currPage->p[mR] = NIL;
 
 	// Copy everything to left page
@@ -588,6 +602,7 @@ void BTree::distributeMerge(int lP, int rP, int pP, int pIndex){
 	currPage->a[mP-1] = NIL;
 	currPage->p[mP] = NIL;
 
+	loadPage(lP);
 	delete[] x;
 	delete[] a;
 	delete[] p;
