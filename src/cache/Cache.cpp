@@ -82,7 +82,7 @@ Page* Cache::FindPage(int offset, bool willBeDirty){
 
 void Cache::CachePage(Page* page, int offset, bool willBeDirty){
 	PageListNode* current = cacheList;
-	cycle = (cycle+1)%length; // TODO
+	cycle = (cycle+1)%length;
 	for(int i=0; i<cycle; i++)
 		current = current->nextElement;
 	if(current->page != NULL && current->isDirty){

@@ -465,7 +465,6 @@ int BTree::RemoveRecord(int x){
 		// This is leaf page, safe to remove
 		removeKeyFromLeafPage(this->currPage, toRemoveIndex);
 	} else {
-		// TODO
 		// Not leaf, get smallest key from right subtree
 		int originPageOffset = this->currPageOffset;
 		int rSubTreeIndex = toRemoveIndex+1;
@@ -473,12 +472,10 @@ int BTree::RemoveRecord(int x){
 		int x = this->currPage->x[0];
 		int a = this->currPage->a[0];
 		removeKeyFromLeafPage(this->currPage, 0);
-		//updatePage(this->currPageOffset, this->currPage);
 		int lowestSubTreePageOffset = this->currPageOffset;
 		loadPage(originPageOffset);
 		this->currPage->x[toRemoveIndex] = x;
 		this->currPage->a[toRemoveIndex] = a;
-		//updatePage(originPageOffset, this->currPage);
 		loadPage(lowestSubTreePageOffset);
 	}
 	while(true){
