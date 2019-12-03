@@ -841,8 +841,8 @@ int BTree::split(Record& rec, int& recordOffset, int nPOffset){
 	int newPageOffset = savePage(newPage);
 
 	distributeSplit(overFlowPageOffset, newPageOffset, rec, recordOffset, nPOffset);
-
-	if(newPage->parent == NIL){
+	loadPage(newPageOffset);
+	if(currPage->parent == NIL){
 		this->h++;
 		this->pageCache->ExpandCache(1);
 		Page* newRoot = new Page(d);
@@ -851,11 +851,11 @@ int BTree::split(Record& rec, int& recordOffset, int nPOffset){
 		newRoot->p[0] = overFlowPageOffset;
 		newRoot->p[1] = newPageOffset;
 		int newRootOffset = savePage(newRoot);
-		newPage->parent = newRootOffset;
+		loadPage(newPageOffset);
+		currPage->parent = newRootOffset;
 		loadPage(overFlowPageOffset);
 		currPage->parent = newRootOffset;
-		this->rootPageOffset = newRootOffset;
-
+		rootPageOffset = newRootOffset;
 	}
 
 	return newPageOffset;
@@ -920,8 +920,8 @@ void BTree::distributeCompensation(int ovP, int sbP, int pP, Record rec, int rec
 		a[rIndex + newRecIndex] = recordOffset;
 		p[rIndex + newRecIndex] = currPage->p[rIndex + newRecIndex];
 		p[rIndex + newRecIndex + 1] = nPOffset;
-		rIndex++;
 		currPage->p[rIndex + newRecIndex] = NIL;
+		rIndex++;
 	}
 
 	// Insert the rest from the overflow page
