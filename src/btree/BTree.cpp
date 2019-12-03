@@ -92,6 +92,9 @@ void BTree::LoadBTree(std::string name){
 	// Load all meta data
 	loadMetaData();
 
+	// Expand the cache
+	pageCache->ExpandCache(h);
+
 	loadPage(rootPageOffset);
 
 	this->isLoaded = true;
@@ -164,7 +167,7 @@ void BTree::PrintIndex(){
 	while(!pages.empty()){
 		int page = pages.top();
 		pages.pop();
-		Page* cachedPage = pageCache->FindPage(page);
+		Page* cachedPage = pageCache->FindPage(page, false);
 		if(cachedPage != NULL){
 			std::copy(cachedPage->x, cachedPage->x+2*d, x);
 			std::copy(cachedPage->a, cachedPage->a+2*d, a);
@@ -248,9 +251,9 @@ void BTree::PrintIndex(){
 	delete[] a;
 }
 
-Page* BTree::loadPage(int offset){
+Page* BTree::loadPage(int offset, bool willBeDirty){
 	// Ask cache first
-	Page* lPage = this->pageCache->FindPage(offset);
+	Page* lPage = this->pageCache->FindPage(offset, willBeDirty);
 	if(lPage != NULL){
 		this->currPage = lPage;
 		this->currPageOffset = offset;
@@ -277,7 +280,7 @@ Page* BTree::loadPage(int offset){
 	this->currPageOffset = offset;
 	this->currPage = lPage;
 
-	this->pageCache->CachePage(lPage, offset);
+	this->pageCache->CachePage(lPage, offset, willBeDirty);
 	delete[] buffer;
 	return lPage;
 }
@@ -1138,11 +1141,11 @@ void BTree::SequentialRead(){
 void BTree::sequentialRead(int offset){
 	if(offset == NIL)
 		return;
-	loadPage(offset);
+	loadPage(offset, false);
 	int m = currPage->getM();
 	for(int i=0; i<m; i++){
 		sequentialRead(currPage->p[i]);
-		loadPage(offset);
+		loadPage(offset, false);
 		Record rec = loadRecord(currPage->a[i]);
 		rec.print(currPage->a[i]);
 	}

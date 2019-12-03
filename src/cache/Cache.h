@@ -21,6 +21,7 @@ public:
 	~PageListNode();
 
 	int pageOffset;
+	bool isDirty;
 	Page* page;
 
 	PageListNode* nextElement;
@@ -35,8 +36,8 @@ public:
 	void ExpandCache(int howMuch);
 	void ShrinkCache(int howMuch);
 
-	Page* FindPage(int offset);
-	void CachePage(Page* page, int offset);
+	Page* FindPage(int offset, bool willBeDirty=true);
+	void CachePage(Page* page, int offset, bool willBeDirty=true);
 	bool IsCached(Page* page);
 	bool IsCached(int offset);
 

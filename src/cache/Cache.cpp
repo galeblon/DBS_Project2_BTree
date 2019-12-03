@@ -9,6 +9,7 @@
 
 PageListNode::PageListNode(){
 	pageOffset = NIL;
+	isDirty = false;
 	page = NULL;
 	nextElement = NULL;
 }
@@ -34,7 +35,7 @@ Cache::~Cache(){
 	PageListNode* next;
 	while(current != NULL){
 		next = current->nextElement;
-		if(current->page != NULL)
+		if(current->page != NULL && current->isDirty)
 			tree->updatePage(current->pageOffset, current->page, true);
 		delete current;
 		current = next;
@@ -64,27 +65,31 @@ void Cache::ShrinkCache(int howMuch){
 	}
 }
 
-Page* Cache::FindPage(int offset){
+Page* Cache::FindPage(int offset, bool willBeDirty){
 	PageListNode* current = cacheList;
 	while(current != NULL){
-		if(current->pageOffset == offset)
+		if(current->pageOffset == offset){
+			if(!current->isDirty)
+				current->isDirty = willBeDirty;
 			return current->page;
+		}
 		current = current->nextElement;
 	}
 	return NULL;
 }
 
-void Cache::CachePage(Page* page, int offset){
+void Cache::CachePage(Page* page, int offset, bool willBeDirty){
 	PageListNode* current = cacheList;
 	for(int i=0; i<cycle; i++)
 		current = current->nextElement;
 	cycle = (cycle+1)%length;
-	if(current->page != NULL){
+	if(current->page != NULL && current->isDirty){
 		tree->updatePage(current->pageOffset, current->page, true);
 		delete current->page;
 	}
 	current->page = page;
 	current->pageOffset = offset;
+	current->isDirty = willBeDirty;
 }
 
 bool Cache::IsCached(Page* page){

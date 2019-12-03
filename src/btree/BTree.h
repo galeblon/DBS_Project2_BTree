@@ -58,7 +58,7 @@ private:
 	void loadMetaData();
 
 
-	Page* loadPage(int offset);
+	Page* loadPage(int offset, bool willBeDirty=true);
 	int savePage(Page* page);
 	void updatePage(int offset, Page* page, bool skipCache=false);
 
