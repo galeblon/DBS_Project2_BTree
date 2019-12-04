@@ -1164,3 +1164,25 @@ void BTree::sequentialRead(int offset){
 	if(m)
 		sequentialRead(currPage->p[m]);
 }
+
+void BTree::GetUsageInfo(int& numOfPages, int& numOfRecords){
+	numOfPages = 0;
+	numOfRecords = 0;
+	getUsageInfo(rootPageOffset, numOfPages, numOfRecords);
+}
+
+
+void BTree::getUsageInfo(int offset, int& numOfPages, int& numOfRecords){
+	if(offset == NIL)
+		return;
+	loadPage(offset, false);
+	int m = currPage->getM();
+	numOfRecords += m;
+	numOfPages += 1;
+	for(int i=0; i<m; i++){
+		getUsageInfo(currPage->p[i], numOfPages, numOfRecords);
+		loadPage(offset, false);
+	}
+	if(m)
+		getUsageInfo(currPage->p[m], numOfPages, numOfRecords);
+}

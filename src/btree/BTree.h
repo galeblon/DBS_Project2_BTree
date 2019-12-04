@@ -24,6 +24,8 @@ public:
 	BTree();
 	~BTree();
 
+	int GetD(){ return d;}
+
 	// B-Tree setup methods
 	bool IsReady(){ return isLoaded;}
 	void CreateBTree(std::string name, int d);
@@ -43,6 +45,13 @@ public:
 	// Helper (statistics)
 	void PrintIOStatistics();
 	void ResetIOCounters();
+	void GetUsageInfo(int& numOfPages, int& numOfRecords);
+
+	// For disk usage statistics
+	int diskReadMainMemory;
+	int diskReadIndexMemory;
+	int diskWriteMainMemory;
+	int diskWriteIndexMemory;
 
 private:
 	bool isLoaded;
@@ -84,15 +93,10 @@ private:
 
 	void sequentialRead(int pageOffset);
 
+	void getUsageInfo(int offset, int& numOfPages, int& numOfRecords);
+
 	Page* currPage;
 	int currPageOffset;
-
-
-	// For disk usage statistics
-	int diskReadMainMemory;
-	int diskReadIndexMemory;
-	int diskWriteMainMemory;
-	int diskWriteIndexMemory;
 friend class Cache;
 };
 

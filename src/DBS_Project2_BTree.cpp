@@ -10,23 +10,26 @@
 #include "btree/BTree.h"
 
 void printHelp();
+void printSummary(BTree& tree);
 bool parseAction(char action, BTree& tree);
+
+int operationsTotal = 0;
+int diskReadIndexMemoryTotal = 0;
+int diskWriteIndexMemoryTotal = 0;
 
 int main() {
 	char action = ' ';
 	bool programFinished = false;
 	BTree tree;
-	int ops =0;
 	std::cout << "Enter H to display help page.\n";
 	while(!programFinished){
 		std::cin >> action;
 		programFinished = parseAction(action, tree);
 		std::cin.clear();
+		diskReadIndexMemoryTotal += tree.diskReadIndexMemory;
+		diskWriteIndexMemoryTotal += tree.diskWriteIndexMemory;
 		tree.ResetIOCounters();
-		std::cout << "OPS:" << ops << "\n";
-		ops++;
 	}
-
 	std::cout << "Goodbye.\n";
 	return 0;
 }
@@ -44,6 +47,24 @@ void printHelp(){
 			  << "\tM             - Display Main memory file (formatted)\n"
 			  << "\tQ             - Quit program\n"
 			  << "\tH             - Display this message\n";
+}
+
+void printSummary(BTree& tree){
+	double avg_diskRead = diskReadIndexMemoryTotal*1.0/operationsTotal;
+	double avg_diskWrite = diskWriteIndexMemoryTotal*1.0/operationsTotal;
+	int num_pages = 0;
+	int num_records = 0;
+	tree.GetUsageInfo(num_pages, num_records);
+	std::cout << "\n\nTotal Operations:" << operationsTotal << "\n"
+			  << "Total Index disk reads:" << diskReadIndexMemoryTotal << "\n"
+			  << "Total Index disk writes:" << diskWriteIndexMemoryTotal << "\n"
+			  << "Total index pages: " << num_pages << "\n"
+			  << "Total records: " << num_records << "\n"
+			  << "Average number of disk R/W per operation:\n"
+			  << "\tR=" << avg_diskRead << "\n\tW=" << avg_diskWrite<< "\n"
+			  << "Memory usage: "
+			  <<  "\n\t⍺=" << num_records*1.0 / (num_pages * 2 *  tree.GetD()) << "\n";
+
 }
 
 bool parseAction(char action, BTree& tree){
@@ -74,6 +95,7 @@ bool parseAction(char action, BTree& tree){
 					std::cout << "\tRecord insert OK\n";
 				}
 				tree.PrintIOStatistics();
+				operationsTotal++;
 			}
 				break;
 			// Record update operation
@@ -87,6 +109,7 @@ bool parseAction(char action, BTree& tree){
 					std::cout << "\tRecord update OK\n";
 				}
 				tree.PrintIOStatistics();
+				operationsTotal++;
 			}
 				break;
 			// Record remove operation
@@ -99,6 +122,7 @@ bool parseAction(char action, BTree& tree){
 					std::cout << "\tRecord removal OK\n";
 				}
 				tree.PrintIOStatistics();
+				operationsTotal++;
 			}
 				break;
 			// Record read operation
@@ -106,11 +130,13 @@ bool parseAction(char action, BTree& tree){
 				std::cin >> valI1;
 				tree.SearchForRecord(valI1);
 				tree.PrintIOStatistics();
+				operationsTotal++;
 				break;
 			// All records read operation
 			case 'A':
 				tree.SequentialRead();
 				tree.PrintIOStatistics();
+				operationsTotal++;
 				break;
 			// Display index file content operation
 			case 'X':
@@ -121,6 +147,7 @@ bool parseAction(char action, BTree& tree){
 				tree.PrintMainMem();
 				break;
 			case 'Q':
+				printSummary(tree);
 				return true;
 			case 'H':
 				printHelp();
