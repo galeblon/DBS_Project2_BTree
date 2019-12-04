@@ -39,7 +39,7 @@ public:
 	Page* FindPage(int offset, bool willBeDirty=true);
 	void CachePage(Page* page, int offset, bool willBeDirty=true);
 	bool IsCached(Page* page);
-	bool IsCached(int offset);
+	PageListNode* IsCached(int offset);
 
 private:
 	BTree* tree;

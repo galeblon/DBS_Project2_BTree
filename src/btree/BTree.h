@@ -24,6 +24,7 @@ public:
 	BTree();
 	~BTree();
 
+	// B-Tree setup methods
 	bool IsReady(){ return isLoaded;}
 	void CreateBTree(std::string name, int d);
 	void LoadBTree(std::string name);
@@ -31,9 +32,9 @@ public:
 	// Basic operations
 	Record SearchForRecord(int x);
 	int InsertRecord(Record rec);
+	int RemoveRecord(int x);
 	int UpdateRecord(Record rec);
 	void SequentialRead();
-	int RemoveRecord(int x);
 
 	// Helpers (visualization)
 	void PrintMainMem();

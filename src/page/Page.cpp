@@ -23,9 +23,9 @@ Page::Page(int d){
 }
 
 Page::~Page(){
-	delete[] this->x;
-	delete[] this->a;
-	delete[] this->p;
+	delete[] x;
+	delete[] a;
+	delete[] p;
 }
 
 int Page::getM(){

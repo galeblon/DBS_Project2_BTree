@@ -313,8 +313,6 @@ void BTree::updatePage(int offset, Page* page, bool skipCache){
 		return;
 	}
 
-	diskWriteIndexMemory++;
-
 	int* buffer = new int[6*this->d+2];
 	buffer[0] = page->parent;
 	for(int i=1; i<2*d+1; i++)
@@ -926,7 +924,7 @@ void BTree::distributeCompensation(int ovP, int sbP, int pP, Record rec, int rec
 		p[rIndex + newRecIndex] = currPage->p[newRecIndex];
 		p[rIndex + newRecIndex + 1] = nPOffset;
 		rIndex++;
-		currPage->p[rIndex] = NIL;
+		currPage->p[newRecIndex] = NIL;
 	} else {
 		x[rIndex + newRecIndex] = rec.getKey();
 		a[rIndex + newRecIndex] = recordOffset;
@@ -998,7 +996,8 @@ void BTree::distributeCompensation(int ovP, int sbP, int pP, Record rec, int rec
 			currPage->parent = ovP;
 		}
 		loadPage(sbP);
-		for(int j=middle+1, i=0; j<toDistribute; j++, i++){
+		int j;
+		for(j=middle+1, i=0; j<toDistribute; j++, i++){
 			currPage->x[i] = x[j];
 			currPage->a[i] = a[j];
 			currPage->p[i] = p[j];
@@ -1034,7 +1033,8 @@ void BTree::distributeCompensation(int ovP, int sbP, int pP, Record rec, int rec
 			loadPage(sbP);
 		}
 		loadPage(ovP);
-		for(int j=middle+1, i=0; j<toDistribute; j++, i++){
+		int j;
+		for(j=middle+1, i=0; j<toDistribute; j++, i++){
 			currPage->x[i] = x[j];
 			currPage->a[i] = a[j];
 			currPage->p[i] = p[j];
@@ -1044,7 +1044,7 @@ void BTree::distributeCompensation(int ovP, int sbP, int pP, Record rec, int rec
 				loadPage(ovP);
 			}
 		}
-		currPage->p[i] = p[toDistribute];
+		currPage->p[i] = p[j];
 		if(currPage->p[i] != NIL){
 			loadPage(currPage->p[i]);
 			currPage->parent = ovP;

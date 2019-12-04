@@ -1,6 +1,5 @@
 #!/bin/bash
-for i in {1..50}
+for i in $(seq $1)
 do
-    echo i $((50 -$i)) $(($RANDOM%100)) $(($RANDOM%100)) $(($RANDOM%100))
-    echo i $((50 +$i)) $(($RANDOM%100)) $(($RANDOM%100)) $(($RANDOM%100))
+    echo i $i $(($RANDOM%100)) $(($RANDOM%100)) $(($RANDOM%100))
 done

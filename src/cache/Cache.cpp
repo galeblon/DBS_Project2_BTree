@@ -16,6 +16,7 @@ PageListNode::PageListNode(){
 
 PageListNode::~PageListNode(){
 	delete page;
+	page = NULL;
 }
 
 Cache::Cache(int len, BTree* tree){
@@ -88,6 +89,7 @@ void Cache::CachePage(Page* page, int offset, bool willBeDirty){
 	if(current->page != NULL && current->isDirty){
 		tree->updatePage(current->pageOffset, current->page, true);
 		delete current->page;
+		current->page = NULL;
 	}
 	current->page = page;
 	current->pageOffset = offset;
@@ -104,14 +106,12 @@ bool Cache::IsCached(Page* page){
 	return false;
 }
 
-bool Cache::IsCached(int offset){
+PageListNode* Cache::IsCached(int offset){
 	PageListNode* current = cacheList;
 	while(current != NULL){
 		if(current->pageOffset == offset)
-			return true;
+			return current;
 		current = current->nextElement;
 	}
-	return false;
+	return NULL;
 }
-
-

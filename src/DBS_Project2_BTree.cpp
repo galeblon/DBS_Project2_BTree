@@ -16,20 +16,20 @@ int main() {
 	char action = ' ';
 	bool programFinished = false;
 	BTree tree;
-
+	int ops =0;
 	std::cout << "Enter H to display help page.\n";
 	while(!programFinished){
 		std::cin >> action;
 		programFinished = parseAction(action, tree);
 		std::cin.clear();
 		tree.ResetIOCounters();
+		std::cout << "OPS:" << ops << "\n";
+		ops++;
 	}
 
 	std::cout << "Goodbye.\n";
 	return 0;
 }
-
-
 
 void printHelp(){
 	std::cout << "Valid Instructions:\n"
@@ -45,7 +45,6 @@ void printHelp(){
 			  << "\tQ             - Quit program\n"
 			  << "\tH             - Display this message\n";
 }
-
 
 bool parseAction(char action, BTree& tree){
 	std::string valStr;
